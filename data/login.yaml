@@ -1,0 +1,15 @@
+login_fail:
+  - case_id: wrong_password
+    request:
+      username: admin
+      password: wrong
+    expected:
+      status_code: 401
+      detail: 用户名或密码错误
+  - case_id: user_not_exist
+    request:
+      username: nobody
+      password: "123456"
+    expected:
+      status_code: 401
+      detail: 用户名或密码错误
