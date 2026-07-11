@@ -1,11 +1,10 @@
 import pytest
-import httpx
 from config import BASE_URL, USERNAME, PASSWORD
-
+from common.request_util import HttpUtil
 
 @pytest.fixture(scope="session")
-def login_data():
-    resp = httpx.post(f"{BASE_URL}/auth/login", json={"username": USERNAME, "password": PASSWORD})
+def login_data(client):
+    resp = client.post("/auth/login", json={"username": USERNAME, "password": PASSWORD})
     return resp.json()
 
 
@@ -19,6 +18,8 @@ def auth_headers(access_token):
     return {"Authorization": f"Bearer {access_token}"}
 
 
-
+@pytest.fixture(scope="session")
+def client():
+    return HttpUtil(BASE_URL)
 
 
