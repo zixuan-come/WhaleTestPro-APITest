@@ -1,0 +1,22 @@
+logout_success:
+  - case_id: logout_success
+    request: {}
+    expected:
+      status_code: 200
+      detail: 已登出
+
+logout_fail:
+  - case_id: missing_token
+    request:
+      headers: {}
+    expected:
+      status_code: 401
+      detail: Not authenticated
+
+  - case_id: invalid_token
+    request:
+      headers:
+        Authorization: Bearer invalid-token
+    expected:
+      status_code: 401
+      detail: 无效或过期的凭证
