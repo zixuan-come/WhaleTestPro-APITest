@@ -1,0 +1,35 @@
+﻿create_project_success:
+  - case_id: create_project_success
+    request:
+      name_prefix: auto_project_create_
+      description: API automation create project
+    expected:
+      status_code: 201
+      required_fields:
+        - id
+        - name
+        - description
+        - created_at
+
+create_project_fail:
+  - case_id: duplicate_project_name
+    request:
+      name_prefix: auto_project_duplicate_
+      description: API automation duplicate project
+    expected:
+      status_code: 409
+
+  - case_id: missing_project_name
+    request:
+      description: API automation missing project name
+    expected:
+      status_code: 422
+
+  - case_id: create_project_without_token
+    request:
+      name_prefix: auto_project_no_token_
+      description: API automation create project without token
+      headers: {}
+    expected:
+      status_code: 401
+      detail: Not authenticated

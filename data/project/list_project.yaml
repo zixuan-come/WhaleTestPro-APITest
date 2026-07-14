@@ -1,0 +1,13 @@
+﻿list_project_success:
+  - case_id: list_projects_success
+    expected:
+      status_code: 200
+      body_type: list
+
+list_project_fail:
+  - case_id: list_projects_without_token
+    request:
+      headers: {}
+    expected:
+      status_code: 401
+      detail: Not authenticated
