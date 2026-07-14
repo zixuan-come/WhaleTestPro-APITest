@@ -1,7 +1,7 @@
 import httpx
 
 
-class HttpUtil:
+class RequestUtil:
     def __init__(self, base_url, headers=None, timeout=10):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}

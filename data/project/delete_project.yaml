@@ -1,0 +1,27 @@
+﻿delete_project_success:
+  - case_id: delete_project_success
+    request:
+      name_prefix: auto_project_delete_
+      description: API automation delete project
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - name
+        - description
+        - created_at
+
+delete_project_fail:
+  - case_id: delete_project_not_exist
+    request:
+      project_id: 999999
+    expected:
+      status_code: 404
+
+  - case_id: delete_project_without_token
+    request:
+      project_id: 999999
+      headers: {}
+    expected:
+      status_code: 401
+      detail: Not authenticated
