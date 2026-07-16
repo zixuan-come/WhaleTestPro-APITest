@@ -28,3 +28,7 @@ load_env_file()
 BASE_URL = os.getenv("WHALE_BASE_URL", "http://localhost:8001")
 USERNAME = require_env("WHALE_USERNAME")
 PASSWORD = require_env("WHALE_PASSWORD")
+
+# 用例执行引擎在被测容器内部发起请求,访问被测服务自身要用容器内地址(8000),
+# 而不是宿主映射端口(8001)。给 case/scenario 执行用例的环境 base_url 用这个。
+RUNNER_BASE_URL = os.getenv("WHALE_RUNNER_BASE_URL", "http://localhost:8000")
