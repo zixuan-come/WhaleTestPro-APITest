@@ -1,5 +1,7 @@
 httpx
 pytest
 pytest-cov
+pytest-rerunfailures   # pytest.ini 的 --reruns 抗网络抖动依赖它,不装 CI 会报未知参数
 allure-pytest
 pyyaml
+openpyxl        # tools/gen_testcase_excel.py 生成用例台账用,跑测试本身不需要
