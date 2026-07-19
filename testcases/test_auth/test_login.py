@@ -10,6 +10,7 @@ cases = load_yaml("data/login.yaml")["login_fail"]
 @allure.story("用户登录")
 class TestLogin:
 
+    @pytest.mark.smoke
     def test_login_success(self, client):
         resp = client.post("/auth/login", json={"username": USERNAME, "password": PASSWORD})
         assert resp.status_code == 200, f"登录失败: {resp.json()}"
