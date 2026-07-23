@@ -1,0 +1,61 @@
+create_success:
+  - case_id: create_scenario_success
+    request:
+      name_prefix: auto_scn_create_
+      description: API automation scenario
+    expected:
+      status_code: 201
+      required_fields:
+        - id
+        - name
+        - case_ids
+        - created_at
+
+list_success:
+  - case_id: list_scenario_success
+    expected:
+      status_code: 200
+      body_type: list
+
+detail_success:
+  - case_id: get_scenario_success
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - name
+        - case_ids
+
+detail_fail:
+  - case_id: scenario_not_exist
+    request:
+      scenario_id: 999999
+    expected:
+      status_code: 404
+
+update_success:
+  - case_id: update_scenario_success
+    request:
+      name_prefix: auto_scn_upd_
+      description: API automation scenario updated
+    expected:
+      status_code: 200
+
+delete_success:
+  - case_id: delete_scenario_success
+    expected:
+      status_code: 200
+
+run_success:
+  - case_id: run_scenario_success
+    expected:
+      status_code: 200
+      body_type: list
+
+create_no_token:
+  - case_id: create_scenario_without_token
+    request:
+      name_prefix: auto_scn_notoken_
+    expected:
+      status_code: 401
+      detail: Not authenticated
