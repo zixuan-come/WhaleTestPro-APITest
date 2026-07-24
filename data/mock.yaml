@@ -1,0 +1,108 @@
+create_success:
+  - case_id: create_mock_success
+    request:
+      name_prefix: auto_mock_create_
+      path_prefix: /auto_mock_
+      method: GET
+      status: 200
+    expected:
+      status_code: 201
+      required_fields:
+        - id
+        - name
+        - path
+        - method
+        - status
+
+list_success:
+  - case_id: list_mock_success
+    expected:
+      status_code: 200
+      body_type: list
+
+detail_success:
+  - case_id: get_mock_success
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - name
+        - path
+
+detail_fail:
+  - case_id: mock_not_exist
+    request:
+      mock_id: 999999
+    expected:
+      status_code: 404
+
+update_success:
+  - case_id: update_mock_success
+    request:
+      name_prefix: auto_mock_upd_
+      path_prefix: /auto_mock_upd_
+      method: POST
+      status: 201
+    expected:
+      status_code: 200
+
+delete_success:
+  - case_id: delete_mock_success
+    expected:
+      status_code: 200
+
+hit_success:
+  - case_id: hit_mock_success
+    request:
+      path_prefix: /auto_hit_
+      method: GET
+      status: 200
+      body:
+        ok: true
+    expected:
+      status_code: 200
+
+hit_fail:
+  - case_id: hit_mock_not_matched
+    expected:
+      status_code: 404
+
+  - case_id: hit_mock_wrong_method
+    request:
+      path_prefix: /auto_hit_wm_
+      created_method: GET
+      hit_method: POST
+      status: 200
+      body:
+        ok: true
+    expected:
+      status_code: 404
+
+# 命中：逐个 HTTP 方法各建对应 mock，命中均 200(方法由 mock 配置决定)
+hit_methods:
+  - case_id: hit_mock_get
+    request: {method: GET, path_prefix: /auto_hit_get_, status: 200, body: {ok: true}}
+    expected: {status_code: 200}
+  - case_id: hit_mock_post
+    request: {method: POST, path_prefix: /auto_hit_post_, status: 200, body: {ok: true}}
+    expected: {status_code: 200}
+  - case_id: hit_mock_put
+    request: {method: PUT, path_prefix: /auto_hit_put_, status: 200, body: {ok: true}}
+    expected: {status_code: 200}
+  - case_id: hit_mock_patch
+    request: {method: PATCH, path_prefix: /auto_hit_patch_, status: 200, body: {ok: true}}
+    expected: {status_code: 200}
+  - case_id: hit_mock_delete
+    request: {method: DELETE, path_prefix: /auto_hit_del_, status: 200, body: {ok: true}}
+    expected: {status_code: 200}
+
+# 特征化：mock 创建不校验 token(疑似缺 Depends(get_current_user))
+create_no_token:
+  - case_id: create_mock_without_token
+    request:
+      name_prefix: auto_mock_notoken_
+      path_prefix: /auto_mock_notoken_
+      method: GET
+      status: 200
+    expected:
+      status_code: 201
