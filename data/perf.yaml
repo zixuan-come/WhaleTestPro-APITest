@@ -1,0 +1,76 @@
+create_success:
+  - case_id: create_perf_task_success
+    request:
+      name_prefix: auto_perf_create_
+      target_host: http://localhost:8001
+      target_path: /health
+      users: 1
+      spawn_rate: 1
+      duration: 2
+    expected:
+      status_code: 201
+      required_fields:
+        - id
+        - name
+        - target_host
+        - status
+
+list_success:
+  - case_id: list_perf_task_success
+    expected:
+      status_code: 200
+      body_type: list
+
+detail_success:
+  - case_id: get_perf_task_success
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - name
+        - status
+
+detail_fail:
+  - case_id: perf_task_not_exist
+    request:
+      task_id: 999999
+    expected:
+      status_code: 404
+
+delete_success:
+  - case_id: delete_perf_task_success
+    expected:
+      status_code: 200
+
+run_success:
+  - case_id: run_perf_task_success
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - status
+
+create_fail:
+  - case_id: create_perf_task_wrong_type
+    request:
+      name_prefix: auto_perf_badtype_
+      target_host: http://localhost:8001
+      target_path: /health
+      users: not-an-int
+      spawn_rate: 1
+      duration: 1
+    expected:
+      status_code: 422
+
+# 特征化：perf 创建不校验 token(疑似缺 Depends(get_current_user))
+create_no_token:
+  - case_id: create_perf_task_without_token
+    request:
+      name_prefix: auto_perf_notoken_
+      target_host: http://localhost:8001
+      target_path: /health
+      users: 1
+      spawn_rate: 1
+      duration: 1
+    expected:
+      status_code: 201
