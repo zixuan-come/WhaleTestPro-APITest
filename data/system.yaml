@@ -1,0 +1,12 @@
+health_success:
+  - case_id: health_ok
+    expected:
+      status_code: 200
+      body_type: dict
+      required_fields:
+        - status
+
+metrics_success:
+  - case_id: metrics_ok
+    expected:
+      status_code: 200
