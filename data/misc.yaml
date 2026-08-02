@@ -1,0 +1,76 @@
+# 零散接口：报告 / 回归 / demo 订单 / 流量录制 / 注册
+report_list:
+  - case_id: list_report_success
+    expected:
+      status_code: 200
+      body_type: list
+
+report_detail_fail:
+  - case_id: report_not_exist
+    request:
+      report_id: 999999
+    expected:
+      status_code: 404
+
+regression_run:
+  - case_id: run_regression_success
+    expected:
+      status_code: 200
+      required_fields:
+        - passed
+        - total
+        - results
+        - pass_rate
+
+demo_order_create:
+  - case_id: create_demo_order_success
+    request:
+      item: apple
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - item
+
+demo_order_list:
+  - case_id: list_demo_order_success
+    expected:
+      status_code: 200
+      body_type: list
+
+traffic_record_list:
+  - case_id: list_traffic_record_success
+    expected:
+      status_code: 200
+      body_type: list
+
+traffic_record_detail_fail:
+  - case_id: traffic_record_not_exist
+    request:
+      record_id: 999999
+    expected:
+      status_code: 404
+
+traffic_replay:
+  - case_id: replay_traffic_success
+    pending: true
+    pending_reason: 需要先有已录制的流量记录(流量录制中间件触发)，超出黑盒回归可自造数据范围
+
+register_success:
+  - case_id: register_new_user_success
+    request:
+      username_prefix: auto_reg_
+      password: auto_reg_pwd
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - username
+
+register_fail:
+  - case_id: register_duplicate_user
+    request:
+      username_prefix: auto_reg_dup_
+      password: auto_reg_pwd
+    expected:
+      status_code: 400
