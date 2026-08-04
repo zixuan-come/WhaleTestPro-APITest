@@ -1,0 +1,95 @@
+# 边界值 / 畸形输入特征化。
+# 被测系统对多数字段不做校验,探测现状:
+#   空 name           → 201(直接建,应 400/422)
+#   超长 name(>255)  → 500(未捕获的服务端错误,应 400/422)—— BUG
+#   非法 cron         → 500(cron 未校验)—— BUG
+#   perf users<=0     → 201(负数/0 并发也接受,应 >=1)
+# 这里用断言钉住现状:后端补了校验/修了 500,对应用例会翻红,提示复核期望。
+# body 里的 "{{LONG}}" 会被测试替换成 300 个 'a'(超过常见 varchar(255))。
+cases:
+  # ---- 空 name:各资源均不校验,直接 201 ----
+  - case_id: interface_empty_name
+    path: /interfaces
+    body: {name: "", method: GET, url: /health}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201,应 400/422)"
+
+  - case_id: environment_empty_name
+    path: /environments
+    body: {name: "", base_url: "http://localhost:8000"}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201)"
+
+  - case_id: schedule_empty_name
+    path: /schedules
+    body: {name: "", cron: "* * * * *"}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201)"
+
+  - case_id: mock_empty_name
+    path: /mocks
+    body: {name: "", path: "/auto_bnd_empty", method: GET, status: 200}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201)"
+
+  - case_id: scenario_empty_name
+    path: /scenarios
+    body: {name: "", description: "d", case_ids: []}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201)"
+
+  - case_id: project_empty_name
+    path: /projects
+    body: {name: "", description: "d"}
+    expected: {status_code: 201}
+    note: "特征化:空 name 不校验(现状 201)"
+
+  # ---- 超长 name:统一 500,服务端未捕获 —— BUG ----
+  - case_id: interface_overlong_name
+    path: /interfaces
+    body: {name: "{{LONG}}", method: GET, url: /health}
+    expected: {status_code: 500}
+    note: "BUG:超长 name(>255)未捕获直接 500,应 400/422"
+
+  - case_id: environment_overlong_name
+    path: /environments
+    body: {name: "{{LONG}}", base_url: "http://localhost:8000"}
+    expected: {status_code: 500}
+    note: "BUG:超长 name 直接 500"
+
+  - case_id: schedule_overlong_name
+    path: /schedules
+    body: {name: "{{LONG}}", cron: "* * * * *"}
+    expected: {status_code: 500}
+    note: "BUG:超长 name 直接 500"
+
+  - case_id: mock_overlong_name
+    path: /mocks
+    body: {name: "{{LONG}}", path: "/auto_bnd_long", method: GET, status: 200}
+    expected: {status_code: 500}
+    note: "BUG:超长 name 直接 500"
+
+  - case_id: scenario_overlong_name
+    path: /scenarios
+    body: {name: "{{LONG}}", description: "d", case_ids: []}
+    expected: {status_code: 500}
+    note: "BUG:超长 name 直接 500"
+
+  # ---- 其它畸形值 ----
+  - case_id: schedule_invalid_cron
+    path: /schedules
+    body: {name: "auto_bnd_cron", cron: "not-a-cron"}
+    expected: {status_code: 500}
+    note: "BUG:非法 cron 未校验直接 500,应 400/422"
+
+  - case_id: perf_users_zero
+    path: /perf/tasks
+    body: {name: "auto_bnd_u0", target_host: "http://localhost:8000", target_path: /health, users: 0, spawn_rate: 1, duration: 1}
+    expected: {status_code: 201}
+    note: "特征化:users=0 不校验(现状 201,应 >=1)"
+
+  - case_id: perf_users_negative
+    path: /perf/tasks
+    body: {name: "auto_bnd_uneg", target_host: "http://localhost:8000", target_path: /health, users: -5, spawn_rate: 1, duration: 1}
+    expected: {status_code: 201}
+    note: "特征化:users=-5 负数不校验(现状 201)"
