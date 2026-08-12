@@ -45,11 +45,12 @@ delete_success:
     expected:
       status_code: 200
 
-# 特征化：schedule 创建不校验 token(疑似缺 Depends(get_current_user))
+# 鉴权：schedule 创建必须携带 token
 create_no_token:
   - case_id: create_schedule_without_token
     request:
       name_prefix: auto_sch_notoken_
       cron: "* * * * *"
     expected:
-      status_code: 201
+      status_code: 401
+      detail: Not authenticated

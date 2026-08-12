@@ -56,7 +56,7 @@ class TestCreatePerfTask:
 
     @pytest.mark.parametrize("case", create_no_token, ids=_ids(create_no_token))
     def test_create_without_token(self, case, project_only_client, unique_name, api_cleanup):
-        """特征化：perf 创建无鉴权，不带 token 也能建(201)——被测系统鉴权缺口。"""
+        """不带 token 创建 perf task → 401 Not authenticated。"""
         skip_if_pending(case)
         resp = project_only_client.post("/perf/tasks", json=_payload(unique_name, case["request"]))
         assert_response(resp, case["expected"])

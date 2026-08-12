@@ -3,7 +3,7 @@
 
 覆盖四类(均无需构造合法 body):
 - 缺 X-Project-Id 头 → 422
-- 不带 token → 现状码(interfaces/scenarios 401；其余 200，鉴权缺口特征化)
+- 不带 token → 401 Not authenticated
 - 创建时缺必填字段(POST {}) → 422
 - 详情路径 id 传非数字 → 422
 """
@@ -11,6 +11,7 @@ import allure
 import pytest
 
 from common.yaml_util import load_yaml
+from common.assert_util import assert_response
 
 resources = load_yaml("data/negative_contract.yaml")["resources"]
 creatable = [r for r in resources if r["creatable"]]
@@ -34,12 +35,12 @@ class TestNegativeContract:
 
     @pytest.mark.parametrize("res", resources, ids=_names(resources))
     def test_list_without_token(self, res, project_only_client):
-        """不带 token 的现状：interfaces/scenarios 有鉴权(401)，其余资源当前无鉴权(200)。
-        后者是被测系统的鉴权缺口——此处特征化 pin 住现状，将来补了鉴权本用例会翻红提示。"""
+        """不带 token 访问项目资源列表 → 401 Not authenticated。"""
         resp = project_only_client.get(res["path"])
-        assert resp.status_code == res["list_no_token_status"], (
-            f"{res['name']} 无 token 列表现状码变了: 预期 {res['list_no_token_status']}, "
-            f"实际 {resp.status_code}(若被测系统补/去了鉴权，请更新此期望)")
+        assert_response(resp, {
+            "status_code": res["list_no_token_status"],
+            "detail": res["list_no_token_detail"],
+        })
 
     @pytest.mark.parametrize("res", creatable, ids=_names(creatable))
     def test_create_missing_required_field(self, res, project_client):

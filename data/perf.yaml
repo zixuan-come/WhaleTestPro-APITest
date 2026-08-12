@@ -62,7 +62,7 @@ create_fail:
     expected:
       status_code: 422
 
-# 特征化：perf 创建不校验 token(疑似缺 Depends(get_current_user))
+# 鉴权：perf 创建必须携带 token
 create_no_token:
   - case_id: create_perf_task_without_token
     request:
@@ -73,4 +73,5 @@ create_no_token:
       spawn_rate: 1
       duration: 1
     expected:
-      status_code: 201
+      status_code: 401
+      detail: Not authenticated

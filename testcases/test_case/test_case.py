@@ -54,8 +54,7 @@ class TestCreateCase:
     @pytest.mark.parametrize("case", create_no_token, ids=_ids(create_no_token))
     def test_create_without_token(self, case, project_only_client, project_client,
                                   seed_interface, unique_name, api_cleanup):
-        """特征化：case 创建路径当前无鉴权，不带 token 也能建(201)。
-        这是被测系统的鉴权缺口——若将来补了鉴权，本用例翻红提示更新期望。"""
+        """不带 token 创建 case → 401 Not authenticated。"""
         skip_if_pending(case)
         resp = project_only_client.post("/cases", json={
             "name": unique_name(case["request"]["name_prefix"]),

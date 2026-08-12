@@ -63,11 +63,12 @@ create_fail:
     expected:
       status_code: 422
 
-# 特征化：case 创建不校验 token(疑似缺 Depends(get_current_user))
+# 鉴权：case 创建必须携带 token
 create_no_token:
   - case_id: create_case_without_token
     request:
       name_prefix: auto_case_notoken_
       expected_status: 200
     expected:
-      status_code: 201
+      status_code: 401
+      detail: Not authenticated

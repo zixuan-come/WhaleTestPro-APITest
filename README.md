@@ -95,7 +95,7 @@ YAML 的 `expected` 里声明了哪几项就查哪几项,四类独立:
 
 | 现象 | 现状断言 | 说明 |
 |------|----------|------|
-| 鉴权不一致 | `create_no_token` 系列期望 201 | 仅 `interfaces` / `scenarios` / `projects` 强制 token(缺则 401);`cases` / `environments` / `mocks` / `schedules` / `perf` 无鉴权,不带 token 也能建 → 疑似漏 `Depends(get_current_user)` |
+| 鉴权统一 | `create_no_token` 与通用契约统一期望 401 | 所有携带 `X-Project-Id` 的平台资源通过 `get_current_project` 间接校验 token；`/health`、注册、登录和 Mock 命中路由保持公开 |
 | JWT 不唯一 | logout 用独立账号 | token 仅含 `sub`+`exp`(整秒),同用户同秒登录得到完全相同 token;注销会误伤同串 token,故 `disposable_token` fixture 用专用账号隔离 |
 | 空 name 不校验 | `data/boundary.yaml` 空 name 期望 201 | 6 类资源建资源时 name 传空串照建,应 400/422 |
 | 超长 name 崩服务 | 超长 name 期望 **500** | name 超 255 字符未捕获直接 500(应 400/422)——真 BUG,5 类资源一致 |
@@ -107,8 +107,8 @@ YAML 的 `expected` 里声明了哪几项就查哪几项,四类独立:
 `interface` / `scenario` / `environment` / `mock` / `schedule` 更新不存在的 id
 (带合法 body)→ 404,验证的是"找不到"而非"参数错"。
 
-若某资源后端补上鉴权/校验/修了 500,对应用例会从现状码翻红——
-这正是特征化的目的:把"已知缺口"变成可回归的信号。
+若某资源后端补上校验或修复 500,对应用例会翻红提醒复核——
+这正是特征化的目的:把已知行为变成可回归的信号。
 
 ## CI
 
