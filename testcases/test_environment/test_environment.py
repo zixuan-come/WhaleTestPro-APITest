@@ -44,7 +44,7 @@ class TestCreateEnvironment:
 
     @pytest.mark.parametrize("case", create_no_token, ids=_ids(create_no_token))
     def test_create_without_token(self, case, project_only_client, unique_name, api_cleanup):
-        """特征化：environment 创建无鉴权，不带 token 也能建(201)——被测系统鉴权缺口。"""
+        """不带 token 创建 environment → 401 Not authenticated。"""
         skip_if_pending(case)
         req = case["request"]
         resp = project_only_client.post("/environments", json={

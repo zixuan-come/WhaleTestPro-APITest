@@ -201,21 +201,20 @@ CASE_DESC = {
 }
 
 CASE_REMARK = {
-    # 鉴权缺口特征化(不带 token 仍 201)
-    "create_case_without_token": "特征化:鉴权缺口(现状 201)",
-    "create_environment_without_token": "特征化:鉴权缺口(现状 201)",
-    "create_mock_without_token": "特征化:鉴权缺口(现状 201)",
-    "create_schedule_without_token": "特征化:鉴权缺口(现状 201)",
-    "create_perf_task_without_token": "特征化:鉴权缺口(现状 201)",
-    # 有鉴权(对照)
-    "create_scenario_without_token": "对照:场景有鉴权(401)",
-    "create_interface_without_token": "对照:接口有鉴权(401)",
+    # 鉴权反例(不带 token 应为 401)
+    "create_case_without_token": "鉴权反例:不带 token(401)",
+    "create_environment_without_token": "鉴权反例:不带 token(401)",
+    "create_mock_without_token": "鉴权反例:不带 token(401)",
+    "create_schedule_without_token": "鉴权反例:不带 token(401)",
+    "create_perf_task_without_token": "鉴权反例:不带 token(401)",
+    "create_scenario_without_token": "鉴权反例:不带 token(401)",
+    "create_interface_without_token": "鉴权反例:不带 token(401)",
 }
 
 # negative_contract 参数化契约反例展开(无独立 case_id)
 NEG_CHECKS = [
     ("list_no_project_header", "GET", "{path}", "缺 X-Project-Id 头", "HTTP 422", "全资源一致"),
-    ("list_no_token", "GET", "{path}", "不带 token 列表(现状码)", None, "特征化:401=有鉴权 200=缺口"),
+    ("list_no_token", "GET", "{path}", "不带 token 列表", "HTTP 401", "统一鉴权反例"),
     ("create_missing_field", "POST", "{path}", "创建缺必填字段(POST {})", "HTTP 422", "仅 creatable 资源"),
     ("detail_bad_id_type", "GET", "{path}/not-a-number", "详情 id 传非数字", "HTTP 422", "仅有详情的资源"),
     ("update_not_found", "PUT", "{path}/999999", "更新不存在的 id(带合法 body)", "HTTP 404", "仅 updatable 资源"),

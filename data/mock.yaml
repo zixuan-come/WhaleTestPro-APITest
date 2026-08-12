@@ -96,7 +96,7 @@ hit_methods:
     request: {method: DELETE, path_prefix: /auto_hit_del_, status: 200, body: {ok: true}}
     expected: {status_code: 200}
 
-# 特征化：mock 创建不校验 token(疑似缺 Depends(get_current_user))
+# 鉴权：mock 创建必须携带 token
 create_no_token:
   - case_id: create_mock_without_token
     request:
@@ -105,4 +105,5 @@ create_no_token:
       method: GET
       status: 200
     expected:
-      status_code: 201
+      status_code: 401
+      detail: Not authenticated

@@ -56,6 +56,14 @@ traffic_replay:
     pending: true
     pending_reason: 需要先有已录制的流量记录(流量录制中间件触发)，超出黑盒回归可自造数据范围
 
+traffic_replay_no_token:
+  - case_id: replay_traffic_without_token
+    request:
+      record_id: 999999
+    expected:
+      status_code: 401
+      detail: Not authenticated
+
 register_success:
   - case_id: register_new_user_success
     request:

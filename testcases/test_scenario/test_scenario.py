@@ -51,7 +51,7 @@ class TestCreateScenario:
 
     @pytest.mark.parametrize("case", create_no_token, ids=_ids(create_no_token))
     def test_create_without_token(self, case, project_only_client, seed_case, unique_name):
-        """scenario 创建有鉴权：不带 token → 401(与 interface 一致,区别于其它无鉴权资源)。
+        """scenario 创建有鉴权：不带 token → 401 Not authenticated。
         传合法 body(含真实 case_id),确保唯一失败原因是缺 token。"""
         skip_if_pending(case)
         resp = project_only_client.post("/scenarios", json={

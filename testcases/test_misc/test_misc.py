@@ -15,6 +15,7 @@ demo_order_list = _d["demo_order_list"]
 traffic_record_list = _d["traffic_record_list"]
 traffic_record_detail_fail = _d["traffic_record_detail_fail"]
 traffic_replay = _d["traffic_replay"]
+traffic_replay_no_token = _d["traffic_replay_no_token"]
 register_success = _d["register_success"]
 register_fail = _d["register_fail"]
 
@@ -90,6 +91,13 @@ class TestTraffic:
     def test_replay(self, case, project_client):
         skip_if_pending(case)  # 需先有录制的流量记录,当前套件内不自造,标记 pending
         resp = project_client.post(f"/traffic/replay/{case['request']['record_id']}", json=None)
+        assert_response(resp, case["expected"])
+
+    @pytest.mark.parametrize("case", traffic_replay_no_token, ids=_ids(traffic_replay_no_token))
+    def test_replay_without_token(self, case, project_only_client):
+        resp = project_only_client.post(
+            f"/traffic/replay/{case['request']['record_id']}", json=None
+        )
         assert_response(resp, case["expected"])
 
 

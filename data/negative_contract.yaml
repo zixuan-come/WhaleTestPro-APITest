@@ -1,6 +1,6 @@
 # 通用契约反例表：所有走 X-Project-Id 的资源共享同一套边界断言。
 # creatable=有 POST 创建；has_detail=有 GET /{id}；
-# list_no_token_status=不带 token 请求列表的现状码(401=有鉴权; 200=鉴权缺口)。
+# list_no_token_status=不带 token 请求列表的预期状态码(统一为 401)。
 # updatable=有 PUT /{id};update_body=更新时发的合法 body(要能过 Pydantic 校验,
 #   这样"更新不存在的 id"才会走到 handler 里查库返回 404,而不是先被 body 校验挡成 422)。
 resources:
@@ -11,13 +11,15 @@ resources:
     updatable: true
     update_body: {name: "auto_upd_404", method: GET, url: /health}
     list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: case
     path: /cases
     creatable: true
     has_detail: true
     updatable: false
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: scenario
     path: /scenarios
@@ -26,6 +28,7 @@ resources:
     updatable: true
     update_body: {name: "auto_upd_404", description: "d", case_ids: []}
     list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: environment
     path: /environments
@@ -33,7 +36,8 @@ resources:
     has_detail: true
     updatable: true
     update_body: {name: "auto_upd_404", base_url: "http://localhost:8000"}
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: mock
     path: /mocks
@@ -41,7 +45,8 @@ resources:
     has_detail: true
     updatable: true
     update_body: {name: "auto_upd_404", path: "/auto_upd_404", method: GET, status: 200}
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: schedule
     path: /schedules
@@ -49,25 +54,29 @@ resources:
     has_detail: true
     updatable: true
     update_body: {name: "auto_upd_404", cron: "* * * * *"}
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: perf_task
     path: /perf/tasks
     creatable: true
     has_detail: true
     updatable: false
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: report
     path: /reports
     creatable: false
     has_detail: true
     updatable: false
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
 
   - name: traffic_record
     path: /traffic/records
     creatable: false
     has_detail: true
     updatable: false
-    list_no_token_status: 200
+    list_no_token_status: 401
+    list_no_token_detail: Not authenticated
