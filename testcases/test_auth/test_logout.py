@@ -22,3 +22,24 @@ class TestLogout:
     def test_logout_fail(self, client, case):
         resp = client.post("/auth/logout", headers=case["request"]["headers"])
         assert_response(resp, case["expected"])
+
+    def test_logout_only_blacklists_current_token(self, client, disposable_token):
+        second_login = client.post(
+            "/auth/login",
+            json={"username": "logout_bot", "password": "logout_bot_pwd"},
+        )
+        assert second_login.status_code == 200, second_login.text
+        second_token = second_login.json()["access_token"]
+        assert second_token != disposable_token
+
+        logged_out = client.post(
+            "/auth/logout",
+            headers={"Authorization": f"Bearer {disposable_token}"},
+        )
+        assert logged_out.status_code == 200, logged_out.text
+
+        still_valid = client.get(
+            "/projects",
+            headers={"Authorization": f"Bearer {second_token}"},
+        )
+        assert still_valid.status_code == 200, still_valid.text
