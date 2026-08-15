@@ -1,0 +1,24 @@
+list_project_members_success:
+  - case_id: owner_list_project_members
+    actor: owner
+    expected:
+      status_code: 200
+      body_type: list
+
+  - case_id: member_list_project_members
+    actor: member
+    expected:
+      status_code: 200
+      body_type: list
+
+list_project_members_fail:
+  - case_id: non_member_list_project_members
+    actor: outsider
+    expected:
+      status_code: 404
+
+  - case_id: list_project_members_without_token
+    actor: anonymous
+    expected:
+      status_code: 401
+      detail: Not authenticated

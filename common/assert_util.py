@@ -59,6 +59,18 @@ def assert_response(resp, expected):
             f"actual_keys={list(body.keys())}, response={resp.text}"
         )
 
+    if "field_types" in expected:
+        assert isinstance(body, dict), (
+            f"field_types 只能对 dict 响应校验, 实际={type(body).__name__}, "
+            f"response={resp.text}"
+        )
+        for field, type_name in expected["field_types"].items():
+            expected_type = BODY_TYPE_MAP[type_name]
+            assert isinstance(body.get(field), expected_type), (
+                f"响应字段类型不符合预期: field={field}, expected={type_name}, "
+                f"actual={type(body.get(field)).__name__}, response={resp.text}"
+            )
+
     # 4. 报错文案
     if "detail" in expected:
         actual = body.get("detail") if isinstance(body, dict) else None

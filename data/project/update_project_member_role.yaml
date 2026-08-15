@@ -1,0 +1,78 @@
+update_project_member_role_success:
+  - case_id: owner_update_project_member_role
+    actor: owner
+    request:
+      role: admin
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - project_id
+        - user_id
+        - role
+        - created_at
+        - user
+
+  - case_id: admin_update_project_member_role
+    actor: admin
+    request:
+      role: admin
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - project_id
+        - user_id
+        - role
+        - created_at
+        - user
+
+update_project_member_role_fail:
+  - case_id: member_update_project_member_role
+    actor: member
+    request:
+      role: admin
+    expected:
+      status_code: 403
+      detail: 只有项目所有者或管理员可以管理项目成员
+
+  - case_id: update_nonexistent_project_member
+    actor: owner
+    request:
+      member_id: 999999
+      role: admin
+    expected:
+      status_code: 404
+      detail: 项目成员不存在
+
+  - case_id: cross_project_update_member
+    actor: owner
+    request:
+      target_project: other
+      role: admin
+    expected:
+      status_code: 404
+      detail: 项目成员不存在
+
+  - case_id: update_project_owner_role
+    actor: owner
+    request:
+      role: member
+    expected:
+      status_code: 409
+      detail: 项目所有者角色不能修改
+
+  - case_id: update_project_member_invalid_role
+    actor: owner
+    request:
+      role: owner
+    expected:
+      status_code: 422
+
+  - case_id: update_project_member_without_token
+    actor: anonymous
+    request:
+      role: admin
+    expected:
+      status_code: 401
+      detail: Not authenticated
