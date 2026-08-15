@@ -11,6 +11,8 @@ list_success = load_yaml("data/project/list_project.yaml")["list_project_success
 list_fail = load_yaml("data/project/list_project.yaml")["list_project_fail"]
 detail_success = load_yaml("data/project/get_project_detail.yaml")["get_project_detail_success"]
 detail_fail = load_yaml("data/project/get_project_detail.yaml")["get_project_detail_fail"]
+update_success = load_yaml("data/project/update_project.yaml")["update_project_success"]
+update_fail = load_yaml("data/project/update_project.yaml")["update_project_fail"]
 delete_success = load_yaml("data/project/delete_project.yaml")["delete_project_success"]
 delete_fail = load_yaml("data/project/delete_project.yaml")["delete_project_fail"]
 
@@ -115,6 +117,99 @@ class TestGetProjectDetail:
         target = _pick_client(case, auth_client, client)
         resp = target.get(f"/projects/{case['request']['project_id']}")
         assert_response(resp, case["expected"])
+
+
+@allure.feature("项目管理")
+@allure.story("修改项目")
+class TestUpdateProject:
+
+    @pytest.mark.parametrize("case", update_success, ids=_ids(update_success))
+    def test_update_success(self, case, auth_client, unique_name, project_cleanup):
+        original_name = unique_name("auto_project_before_update_")
+        created = auth_client.post(
+            "/projects",
+            json={"name": original_name, "description": "before update"},
+        )
+        assert created.status_code == 201, f"前置建项目应成功: {created.text}"
+        project_id = project_cleanup(created.json()["id"])
+
+        body = {
+            "name": unique_name(case["request"]["name_prefix"]),
+            "description": case["request"]["description"],
+        }
+        response = auth_client.put(f"/projects/{project_id}", json=body)
+        assert_response(response, case["expected"])
+        assert_values(response, body)
+
+        detail = auth_client.get(f"/projects/{project_id}")
+        assert detail.status_code == 200
+        assert_values(detail, body)
+
+    def test_update_duplicate_name(self, auth_client, unique_name, project_cleanup):
+        case = next(
+            item for item in update_fail
+            if item["case_id"] == "update_project_duplicate_name"
+        )
+        occupied_name = unique_name(case["request"]["name_prefix"])
+        first = auth_client.post(
+            "/projects",
+            json={"name": unique_name("auto_project_update_target_"), "description": None},
+        )
+        second = auth_client.post(
+            "/projects",
+            json={"name": occupied_name, "description": None},
+        )
+        assert first.status_code == second.status_code == 201
+        project_cleanup(first.json()["id"])
+        project_cleanup(second.json()["id"])
+
+        response = auth_client.put(
+            f"/projects/{first.json()['id']}",
+            json={"name": occupied_name, "description": case["request"]["description"]},
+        )
+        assert_response(response, case["expected"])
+
+    @pytest.mark.parametrize(
+        "case",
+        [
+            item for item in update_fail
+            if item["case_id"] in {
+                "update_project_not_exist",
+                "update_project_without_token",
+            }
+        ],
+        ids=lambda case: case["case_id"],
+    )
+    def test_update_access_fail(self, case, auth_client, client):
+        target = client if case["actor"] == "anonymous" else auth_client
+        request = case["request"]
+        response = target.put(
+            f"/projects/{request['project_id']}",
+            json={"name": request["name"], "description": request["description"]},
+        )
+        assert_response(response, case["expected"])
+
+    @pytest.mark.parametrize(
+        "case",
+        [
+            item for item in update_fail
+            if item["case_id"] in {
+                "update_project_as_admin",
+                "update_project_as_member",
+            }
+        ],
+        ids=lambda case: case["case_id"],
+    )
+    def test_update_role_fail(self, case, member_project_context, unique_name):
+        context = member_project_context
+        response = context["clients"][case["actor"]].put(
+            f"/projects/{context['project_id']}",
+            json={
+                "name": unique_name(case["request"]["name_prefix"]),
+                "description": case["request"]["description"],
+            },
+        )
+        assert_response(response, case["expected"])
 
 
 @allure.feature("项目管理")

@@ -11,6 +11,8 @@ create_no_token = _d["create_no_token"]
 list_success = _d["list_success"]
 detail_success = _d["detail_success"]
 detail_fail = _d["detail_fail"]
+update_success = _d["update_success"]
+update_fail = _d["update_fail"]
 delete_success = _d["delete_success"]
 run_success = _d["run_success"]
 chain_success = _d["chain_success"]
@@ -92,6 +94,101 @@ class TestGetCaseDetail:
         skip_if_pending(case)
         resp = project_client.get(f"/cases/{case['request']['case_id']}")
         assert_response(resp, case["expected"])
+
+
+@allure.feature("用例管理")
+@allure.story("修改用例")
+class TestUpdateCase:
+
+    @pytest.mark.parametrize("case", update_success, ids=_ids(update_success))
+    def test_update_success(
+        self,
+        case,
+        project_client,
+        seed_case,
+        seed_interface,
+        unique_name,
+    ):
+        case_id = seed_case()
+        interface_id = seed_interface()
+        request = case["request"]
+        body = {
+            "name": unique_name(request["name_prefix"]),
+            "interface_id": interface_id,
+            "expected_status": request["expected_status"],
+            "retries": request["retries"],
+            "tags": request["tags"],
+            "extract_rules": request["extract_rules"],
+            "assertions": request["assertions"],
+        }
+
+        response = project_client.put(f"/cases/{case_id}", json=body)
+        assert_response(response, case["expected"])
+        assert_values(response, body)
+
+        detail = project_client.get(f"/cases/{case_id}")
+        assert detail.status_code == 200
+        assert_values(detail, body)
+
+    def test_update_not_exist(self, project_client, seed_interface, unique_name):
+        case = next(item for item in update_fail if item["case_id"] == "update_case_not_exist")
+        request = case["request"]
+        response = project_client.put(
+            f"/cases/{request['case_id']}",
+            json={
+                "name": unique_name("auto_case_missing_"),
+                "interface_id": seed_interface(),
+                "expected_status": request["expected_status"],
+            },
+        )
+        assert_response(response, case["expected"])
+
+    def test_update_interface_not_exist(self, project_client, seed_case, unique_name):
+        case = next(
+            item for item in update_fail
+            if item["case_id"] == "update_case_interface_not_exist"
+        )
+        request = case["request"]
+        response = project_client.put(
+            f"/cases/{seed_case()}",
+            json={
+                "name": unique_name("auto_case_bad_interface_"),
+                "interface_id": request["interface_id"],
+                "expected_status": request["expected_status"],
+            },
+        )
+        assert_response(response, case["expected"])
+
+    def test_update_wrong_type(self, project_client, seed_case, unique_name):
+        case = next(item for item in update_fail if item["case_id"] == "update_case_wrong_type")
+        request = case["request"]
+        response = project_client.put(
+            f"/cases/{seed_case()}",
+            json={
+                "name": unique_name("auto_case_bad_type_update_"),
+                "interface_id": request["interface_id"],
+                "expected_status": request["expected_status"],
+            },
+        )
+        assert_response(response, case["expected"])
+
+    def test_update_without_token(
+        self,
+        project_only_client,
+        seed_case,
+        seed_interface,
+        unique_name,
+    ):
+        case = next(item for item in update_fail if item["case_id"] == "update_case_without_token")
+        response = project_only_client.put(
+            f"/cases/{seed_case()}",
+            json={
+                "name": unique_name("auto_case_no_token_update_"),
+                "interface_id": seed_interface(),
+                "expected_status": case["request"]["expected_status"],
+            },
+        )
+        assert_response(response, case["expected"])
 
 
 @allure.feature("用例管理")

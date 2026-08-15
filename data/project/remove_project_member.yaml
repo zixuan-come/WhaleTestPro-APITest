@@ -1,0 +1,45 @@
+remove_project_member_success:
+  - case_id: owner_remove_project_member
+    actor: owner
+    expected:
+      status_code: 204
+
+  - case_id: admin_remove_project_member
+    actor: admin
+    expected:
+      status_code: 204
+
+remove_project_member_fail:
+  - case_id: member_remove_project_member
+    actor: member
+    expected:
+      status_code: 403
+      detail: 只有项目所有者或管理员可以管理项目成员
+
+  - case_id: remove_nonexistent_project_member
+    actor: owner
+    request:
+      member_id: 999999
+    expected:
+      status_code: 404
+      detail: 项目成员不存在
+
+  - case_id: cross_project_remove_member
+    actor: owner
+    request:
+      target_project: other
+    expected:
+      status_code: 404
+      detail: 项目成员不存在
+
+  - case_id: remove_project_owner
+    actor: owner
+    expected:
+      status_code: 409
+      detail: 项目所有者不能被移除
+
+  - case_id: remove_project_member_without_token
+    actor: anonymous
+    expected:
+      status_code: 401
+      detail: Not authenticated

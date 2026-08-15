@@ -1,0 +1,57 @@
+update_project_success:
+  - case_id: update_project_success
+    actor: owner
+    request:
+      name_prefix: auto_project_updated_
+      description: API automation updated project
+    expected:
+      status_code: 200
+      required_fields:
+        - id
+        - name
+        - description
+        - created_at
+
+update_project_fail:
+  - case_id: update_project_duplicate_name
+    actor: owner
+    request:
+      name_prefix: auto_project_duplicate_update_
+      description: API automation duplicate update
+    expected:
+      status_code: 409
+
+  - case_id: update_project_not_exist
+    actor: owner
+    request:
+      project_id: 999999
+      name: missing project
+      description: API automation missing project
+    expected:
+      status_code: 404
+
+  - case_id: update_project_without_token
+    actor: anonymous
+    request:
+      project_id: 999999
+      name: anonymous update
+      description: API automation anonymous update
+    expected:
+      status_code: 401
+      detail: Not authenticated
+
+  - case_id: update_project_as_admin
+    actor: admin
+    request:
+      name_prefix: auto_project_admin_update_
+      description: API automation admin update
+    expected:
+      status_code: 403
+
+  - case_id: update_project_as_member
+    actor: member
+    request:
+      name_prefix: auto_project_member_update_
+      description: API automation member update
+    expected:
+      status_code: 403
