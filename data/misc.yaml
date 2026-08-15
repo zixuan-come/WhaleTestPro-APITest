@@ -1,9 +1,105 @@
 # 零散接口：报告 / 回归 / demo 订单 / 流量录制 / 注册
 report_list:
   - case_id: list_report_success
+    request:
+      params:
+        page: 1
+        page_size: 20
     expected:
       status_code: 200
-      body_type: list
+      required_fields:
+        - items
+        - total
+        - page
+        - page_size
+        - total_pages
+        - passed_count
+        - failed_count
+        - pass_rate
+      field_types:
+        items: list
+      values:
+        page: 1
+        page_size: 20
+
+  - case_id: list_report_custom_page_size
+    request:
+      params:
+        page: 1
+        page_size: 1
+    expected:
+      status_code: 200
+      required_fields:
+        - items
+        - total
+        - page
+        - page_size
+        - total_pages
+        - passed_count
+        - failed_count
+        - pass_rate
+      field_types:
+        items: list
+      values:
+        page: 1
+        page_size: 1
+
+  - case_id: list_report_page_out_of_range
+    request:
+      params:
+        page: 999999
+        page_size: 20
+    expected:
+      status_code: 200
+      required_fields:
+        - items
+        - total
+        - page
+        - page_size
+        - total_pages
+        - passed_count
+        - failed_count
+        - pass_rate
+      field_types:
+        items: list
+      values:
+        page: 999999
+        page_size: 20
+
+report_list_invalid:
+  - case_id: report_page_zero
+    request:
+      params:
+        page: 0
+    expected:
+      status_code: 422
+
+  - case_id: report_page_size_zero
+    request:
+      params:
+        page_size: 0
+    expected:
+      status_code: 422
+
+  - case_id: report_page_size_too_large
+    request:
+      params:
+        page_size: 101
+    expected:
+      status_code: 422
+
+report_case_name:
+  - case_id: report_contains_case_name
+    request:
+      params:
+        page: 1
+        page_size: 1
+    expected:
+      status_code: 200
+      required_fields:
+        - items
+      field_types:
+        items: list
 
 report_detail_fail:
   - case_id: report_not_exist
