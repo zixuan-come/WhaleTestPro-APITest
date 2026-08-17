@@ -18,7 +18,7 @@ docker compose up -d --build
 | 后端 API | http://localhost:8001 |
 | Swagger | http://localhost:8001/docs |
 
-鉴权:除注册/登录外,接口需 `Authorization: Bearer <token>` + `X-Project-Id` 双请求头。
+鉴权:受保护接口需 `Authorization: Bearer <token>`;项目内接口、用例、环境、场景等资产接口还需 `X-Project-Id`。项目 CRUD / 成员接口通过路径参数校验项目权限,不使用该请求头;健康检查、注册、登录和 Mock 命中路由保持公开。
 
 ## 技术栈
 
@@ -35,17 +35,17 @@ docker compose up -d --build
 ```
 WhaleTestPro-APITest/
 ├── common/                 # 通用封装
-│   ├── request_util.py     # httpx 封装:统一 BASE_URL、注入 token / X-Project-Id
-│   ├── assert_util.py      # 契约断言:status_code / body_type / required_fields / detail
+│   ├── request_util.py     # httpx 封装:统一 BASE_URL、默认请求头、超时与日志
+│   ├── assert_util.py      # 契约断言:状态、结构、字段类型、错误详情与字段值
 │   └── yaml_util.py        # 读取 data/ 下的 YAML
-├── config.py               # BASE_URL、测试账号、超时等配置(从 .env 读)
+├── config.py               # 服务地址与测试账号配置(从 .env 读)
 ├── conftest.py             # 全局 fixture:client、登录取 token、项目上下文、清理/自举
-├── data/                   # YAML 测试数据(用例数据外置,按资源一文件)
+├── data/                   # YAML 测试数据(按模块和接口场景拆分)
 ├── docs/                   # 用例台账 Excel(由 tools 脚本从 data/ 生成)
 ├── tools/gen_testcase_excel.py # 读 data/*.yaml 生成《接口测试用例》Excel,校验编号一致
 ├── testcases/              # 测试用例(按资源分目录,覆盖全部接口)
 │   ├── test_auth/          # 注册 / 登录 / 登出
-│   ├── test_project/       # 项目 CRUD
+│   ├── test_project/       # 项目 CRUD + 成员角色 + 非空项目删除
 │   ├── test_interface/     # 接口 CRUD + 分类改名/删除
 │   ├── test_case/          # 用例 CRUD + 执行 + 串联
 │   ├── test_scenario/      # 场景 CRUD + 执行
@@ -54,8 +54,9 @@ WhaleTestPro-APITest/
 │   ├── test_schedule/      # 定时任务 CRUD
 │   ├── test_perf/          # 压测任务 CRUD + 触发
 │   ├── test_contract/      # 跨资源反例:缺头/缺字段/错类型/无 token/更新不存在
-│   ├── test_boundary/      # 边界与畸形输入特征化(空/超长 name、非法 cron、负并发)
+│   ├── test_boundary/      # 边界与畸形输入回归(空/超长 name、非法 cron、负并发)
 │   ├── test_system/        # /health + /metrics
+│   ├── test_report/        # 场景报告父记录与步骤明细
 │   └── test_misc/          # 报告 / 回归 / demo 订单 / 流量录制
 ├── pytest.ini              # 用例发现规则、addopts
 ├── .github/workflows/ci.yml# CI:起被测全栈 → 跑黑盒回归 → 传 Allure 产物
@@ -79,36 +80,28 @@ python tools/gen_testcase_excel.py
 
 ## 断言契约(assert_util)
 
-YAML 的 `expected` 里声明了哪几项就查哪几项,四类独立:
+YAML 的 `expected` 声明哪项就校验哪项,各检查彼此独立:
 
-| 键 | 含义 |
-|----|------|
+| 键 / 方法 | 含义 |
+|-----------|------|
 | `status_code` | HTTP 状态码 |
 | `body_type` | 响应体整体类型(`list` / `dict` …) |
-| `required_fields` | 响应 dict 必须包含的字段(只查存在性) |
+| `required_fields` | 响应 dict 必须包含的字段 |
+| `field_types` | 指定响应字段的数据类型 |
 | `detail` | FastAPI 报错体的 `detail` 文案 |
+| `assert_values` | 校验创建或修改后响应字段的实际值 |
 
-## 被测系统缺陷特征化(characterization)
+## 回归覆盖重点
 
-黑盒探测发现多处被测系统行为问题,用**特征化用例**钉住现状——不是测试写错,而是
-用例断言"当前(有缺陷的)行为",一旦后端修复即变红提醒复核。**不修改被测系统**。
+- **认证隔离**:校验 JWT 包含唯一 `jti`,同一账号连续登录得到不同 Token,登出只拉黑当前 Token。
+- **项目权限**:覆盖 owner / admin / member / outsider 的成员查询、候选搜索、添加、改角色、移除和越权场景。
+- **项目生命周期**:覆盖项目修改以及带接口、用例的非空项目事务删除,避免外键冲突退化为 500。
+- **输入边界**:空名称、超长名称、非法 Cron、零或负并发统一期望 `422`。
+- **资源契约**:覆盖无 Token、缺 `X-Project-Id`、错误类型、跨项目访问和更新不存在资源。
+- **报告闭环**:覆盖单用例报告分页、用例名称,以及一份场景报告对应多条步骤明细。
+- **测试隔离**:fixture 自动创建独立项目和账号,测试结束后清理数据,不依赖 WhaleTestPro 内部代码。
 
-| 现象 | 现状断言 | 说明 |
-|------|----------|------|
-| 鉴权统一 | `create_no_token` 与通用契约统一期望 401 | 所有携带 `X-Project-Id` 的平台资源通过 `get_current_project` 间接校验 token；`/health`、注册、登录和 Mock 命中路由保持公开 |
-| JWT 不唯一 | logout 用独立账号 | token 仅含 `sub`+`exp`(整秒),同用户同秒登录得到完全相同 token;注销会误伤同串 token,故 `disposable_token` fixture 用专用账号隔离 |
-| 空 name 不校验 | `data/boundary.yaml` 空 name 期望 201 | 6 类资源建资源时 name 传空串照建,应 400/422 |
-| 超长 name 崩服务 | 超长 name 期望 **500** | name 超 255 字符未捕获直接 500(应 400/422)——真 BUG,5 类资源一致 |
-| 非法 cron 崩服务 | `schedule_invalid_cron` 期望 **500** | 定时任务 cron 传 `not-a-cron` 未校验直接 500(应 400/422)——真 BUG |
-| perf 并发数不校验 | `perf_users_zero/negative` 期望 201 | `users=0` / `users=-5` 也接受,应 `>=1` |
-
-边界特征化集中在 `testcases/test_boundary/`(数据 `data/boundary.yaml`,哨兵
-`{{LONG}}` 由测试替换成 300 个 `a`)。另在通用契约里补了 `test_update_not_found`:
-`interface` / `scenario` / `environment` / `mock` / `schedule` 更新不存在的 id
-(带合法 body)→ 404,验证的是"找不到"而非"参数错"。
-
-若某资源后端补上校验或修复 500,对应用例会翻红提醒复核——
-这正是特征化的目的:把已知行为变成可回归的信号。
+当前完整回归基线为 `201 collected / 200 passed / 1 skipped`;跳过项是需要预先录制真实流量的数据依赖场景。
 
 ## CI
 
