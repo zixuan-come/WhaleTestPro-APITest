@@ -225,6 +225,28 @@ class TestDeleteProject:
         assert created.status_code == 201, f"前置建项目应成功: {created.text}"
         pid = created.json()["id"]
 
+        project_headers = {"X-Project-Id": str(pid)}
+        interface = auth_client.post(
+            "/interfaces",
+            headers=project_headers,
+            json={
+                "name": unique_name("auto_delete_interface_"),
+                "method": "GET",
+                "url": "/health",
+            },
+        )
+        assert interface.status_code == 201, f"前置建接口应成功: {interface.text}"
+        test_case = auth_client.post(
+            "/cases",
+            headers=project_headers,
+            json={
+                "name": unique_name("auto_delete_case_"),
+                "interface_id": interface.json()["id"],
+                "expected_status": 200,
+            },
+        )
+        assert test_case.status_code == 201, f"前置建用例应成功: {test_case.text}"
+
         resp = auth_client.delete(f"/projects/{pid}")
         assert_response(resp, case["expected"])
         # 已删除,无需登记清理;确认再查 404
