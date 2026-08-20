@@ -6,6 +6,7 @@ create_success:
       url: http://localhost:8001/health
     expected:
       status_code: 201
+      code: 0
       required_fields:
         - id
         - name
@@ -20,6 +21,7 @@ create_fail:
       url: http://localhost:8001/health
     expected:
       status_code: 401
+      code: 401
       detail: Not authenticated
 
   - case_id: create_interface_without_project
@@ -29,17 +31,20 @@ create_fail:
       url: http://localhost:8001/health
     expected:
       status_code: 422
+      code: 422
 
 list_success:
   - case_id: list_interface_success
     expected:
       status_code: 200
+      code: 0
       body_type: list
 
 detail_success:
   - case_id: get_interface_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - name
@@ -52,6 +57,7 @@ detail_fail:
       interface_id: 999999
     expected:
       status_code: 404
+      code: 404
 
 update_success:
   - case_id: update_interface_success
@@ -61,11 +67,13 @@ update_success:
       url: http://localhost:8001/health
     expected:
       status_code: 200
+      code: 0
 
 delete_success:
   - case_id: delete_interface_success
     expected:
       status_code: 200
+      code: 0
 
 category_rename:
   - case_id: rename_category_success
@@ -73,8 +81,10 @@ category_rename:
       new_name_prefix: auto_cat_new_
     expected:
       status_code: 200
+      code: 0
 
 category_delete:
   - case_id: delete_category_success
     expected:
       status_code: 200
+      code: 0

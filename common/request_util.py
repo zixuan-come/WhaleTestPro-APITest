@@ -6,6 +6,27 @@ import httpx
 # 统一的 HTTP 日志器。handler 由 conftest 挂到文件(logs/http.log),
 # 这里只负责产出记录:每条请求打一行 method/path/状态码/耗时,失败排查用。
 log = logging.getLogger("whale.http")
+class ResponseView:
+    """Keep existing test code compatible with the common API envelope."""
+
+    def __init__(self, response):
+        self._response = response
+
+    def __getattr__(self, name):
+        return getattr(self._response, name)
+
+    def envelope_json(self):
+        return self._response.json()
+
+    def json(self, **kwargs):
+        body = self._response.json(**kwargs)
+        if (
+            isinstance(body, dict)
+            and {"code", "message", "data"}.issubset(body)
+            and body.get("code") == 0
+        ):
+            return body["data"]
+        return body
 
 
 class RequestUtil:
@@ -34,7 +55,7 @@ class RequestUtil:
             raise
         cost = (time.perf_counter() - start) * 1000
         log.info("%s %s -> %s (%.0fms)", method, url, resp.status_code, cost)
-        return resp
+        return ResponseView(resp)
 
     def get(self, path, **kwargs):
         return self.request("GET", path, **kwargs)
