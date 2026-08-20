@@ -5,6 +5,7 @@ create_success:
       expected_status: 200
     expected:
       status_code: 201
+      code: 0
       required_fields:
         - id
         - name
@@ -15,12 +16,14 @@ list_success:
   - case_id: list_case_success
     expected:
       status_code: 200
+      code: 0
       body_type: list
 
 detail_success:
   - case_id: get_case_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - name
@@ -32,6 +35,7 @@ detail_fail:
       case_id: 999999
     expected:
       status_code: 404
+      code: 404
 
 update_success:
   - case_id: update_case_success
@@ -49,6 +53,7 @@ update_success:
           expected: 201
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - name
@@ -62,6 +67,7 @@ update_fail:
       expected_status: 200
     expected:
       status_code: 404
+      code: 404
 
   - case_id: update_case_interface_not_exist
     request:
@@ -69,6 +75,7 @@ update_fail:
       expected_status: 200
     expected:
       status_code: 400
+      code: 400
 
   - case_id: update_case_wrong_type
     request:
@@ -76,23 +83,27 @@ update_fail:
       expected_status: 200
     expected:
       status_code: 422
+      code: 422
 
   - case_id: update_case_without_token
     request:
       expected_status: 200
     expected:
       status_code: 401
+      code: 401
       detail: Not authenticated
 
 delete_success:
   - case_id: delete_case_success
     expected:
       status_code: 200
+      code: 0
 
 run_success:
   - case_id: run_case_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - passed
         - expected_status
@@ -103,6 +114,7 @@ chain_success:
   - case_id: run_case_chain_success
     expected:
       status_code: 200
+      code: 0
       body_type: list
 
 create_fail:
@@ -113,6 +125,7 @@ create_fail:
       expected_status: 200
     expected:
       status_code: 422
+      code: 422
 
 # 鉴权：case 创建必须携带 token
 create_no_token:
@@ -122,4 +135,5 @@ create_no_token:
       expected_status: 200
     expected:
       status_code: 401
+      code: 401
       detail: Not authenticated

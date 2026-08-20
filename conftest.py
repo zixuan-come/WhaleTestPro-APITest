@@ -125,7 +125,7 @@ def member_users(client, ensure_test_user):
             "/auth/register",
             json={"username": username, "password": password},
         )
-        assert register.status_code == 200, (
+        assert register.status_code == 201, (
             f"成员测试账号注册失败: role={role}, response={register.text}"
         )
 

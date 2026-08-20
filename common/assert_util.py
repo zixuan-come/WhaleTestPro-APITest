@@ -35,7 +35,8 @@ def assert_response(resp, expected):
 
     # 响应体解析一次；非 JSON（理论上本 API 不会出现）时置 None，后续检查各自兜底
     try:
-        body = resp.json()
+        envelope = resp.envelope_json() if hasattr(resp, "envelope_json") else resp.json()
+        body = envelope.get("data") if isinstance(envelope, dict) and envelope.get("code") == 0 else envelope
     except Exception:
         body = None
 
@@ -72,8 +73,19 @@ def assert_response(resp, expected):
             )
 
     # 4. 报错文案
+    if "code" in expected:
+        assert isinstance(envelope, dict), f"code assertion requires dict response: {resp.text}"
+        assert envelope.get("code") == expected["code"], (
+            f"code mismatch: expected={expected['code']}, actual={envelope.get('code')}, response={resp.text}"
+        )
+
+    if "message" in expected:
+        assert isinstance(envelope, dict), f"message assertion requires dict response: {resp.text}"
+        assert envelope.get("message") == expected["message"], (
+            f"message mismatch: expected={expected['message']}, actual={envelope.get('message')}, response={resp.text}"
+        )
     if "detail" in expected:
-        actual = body.get("detail") if isinstance(body, dict) else None
+        actual = body.get("detail", envelope.get("message")) if isinstance(body, dict) else None
         assert actual == expected["detail"], (
             f"detail 不符合预期: expected={expected['detail']}, "
             f"actual={actual}, response={resp.text}"
@@ -87,7 +99,8 @@ def assert_values(resp, expected_values):
     典型用法:创建/更新后,断言响应回显的 name/method/... 确实等于刚提交的值,
     确认写入生效而非只返回了结构。
     """
-    body = resp.json()
+    envelope = resp.envelope_json() if hasattr(resp, "envelope_json") else resp.json()
+    body = envelope.get("data") if isinstance(envelope, dict) and envelope.get("code") == 0 else envelope
     assert isinstance(body, dict), f"值校验只能对 dict 响应, 实际={type(body).__name__}, response={resp.text}"
     mismatch = {k: (v, body.get(k)) for k, v in expected_values.items() if body.get(k) != v}
     assert not mismatch, (
