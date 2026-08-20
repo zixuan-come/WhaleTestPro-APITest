@@ -3,7 +3,8 @@ logout_success:
     request: {}
     expected:
       status_code: 200
-      detail: 已登出
+      code: 0
+      message: 登出成功
 
 logout_fail:
   - case_id: missing_token
@@ -11,7 +12,8 @@ logout_fail:
       headers: {}
     expected:
       status_code: 401
-      detail: Not authenticated
+      code: 401
+      message: Not authenticated
 
   - case_id: invalid_token
     request:
@@ -19,4 +21,5 @@ logout_fail:
         Authorization: Bearer invalid-token
     expected:
       status_code: 401
-      detail: 无效或过期的凭证
+      code: 401
+      message: 无效或过期的凭证

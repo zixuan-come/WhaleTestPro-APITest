@@ -2,12 +2,12 @@ remove_project_member_success:
   - case_id: owner_remove_project_member
     actor: owner
     expected:
-      status_code: 204
+      status_code: 200
 
   - case_id: admin_remove_project_member
     actor: admin
     expected:
-      status_code: 204
+      status_code: 200
 
 remove_project_member_fail:
   - case_id: member_remove_project_member

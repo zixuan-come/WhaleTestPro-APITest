@@ -9,6 +9,7 @@ create_success:
       duration: 2
     expected:
       status_code: 201
+      code: 0
       required_fields:
         - id
         - name
@@ -19,12 +20,14 @@ list_success:
   - case_id: list_perf_task_success
     expected:
       status_code: 200
+      code: 0
       body_type: list
 
 detail_success:
   - case_id: get_perf_task_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - name
@@ -36,16 +39,19 @@ detail_fail:
       task_id: 999999
     expected:
       status_code: 404
+      code: 404
 
 delete_success:
   - case_id: delete_perf_task_success
     expected:
       status_code: 200
+      code: 0
 
 run_success:
   - case_id: run_perf_task_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - status
@@ -61,6 +67,7 @@ create_fail:
       duration: 1
     expected:
       status_code: 422
+      code: 422
 
 # 鉴权：perf 创建必须携带 token
 create_no_token:
@@ -74,4 +81,5 @@ create_no_token:
       duration: 1
     expected:
       status_code: 401
+      code: 401
       detail: Not authenticated

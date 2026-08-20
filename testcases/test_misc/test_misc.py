@@ -161,6 +161,6 @@ class TestRegister:
         req = case["request"]
         username = f"{req['username_prefix']}{uuid.uuid4().hex[:8]}"
         first = client.post("/auth/register", json={"username": username, "password": req["password"]})
-        assert first.status_code == 200, f"前置注册应成功: {first.text}"
+        assert first.status_code == 201, f"前置注册应成功: {first.text}"
         resp = client.post("/auth/register", json={"username": username, "password": req["password"]})
         assert_response(resp, case["expected"])
