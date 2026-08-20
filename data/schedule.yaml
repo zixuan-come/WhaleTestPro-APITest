@@ -5,6 +5,7 @@ create_success:
       cron: "* * * * *"
     expected:
       status_code: 201
+      code: 0
       required_fields:
         - id
         - name
@@ -14,12 +15,14 @@ list_success:
   - case_id: list_schedule_success
     expected:
       status_code: 200
+      code: 0
       body_type: list
 
 detail_success:
   - case_id: get_schedule_success
     expected:
       status_code: 200
+      code: 0
       required_fields:
         - id
         - name
@@ -31,6 +34,7 @@ detail_fail:
       schedule_id: 999999
     expected:
       status_code: 404
+      code: 404
 
 update_success:
   - case_id: update_schedule_success
@@ -39,11 +43,13 @@ update_success:
       cron: "*/5 * * * *"
     expected:
       status_code: 200
+      code: 0
 
 delete_success:
   - case_id: delete_schedule_success
     expected:
       status_code: 200
+      code: 0
 
 # 鉴权：schedule 创建必须携带 token
 create_no_token:
@@ -53,4 +59,5 @@ create_no_token:
       cron: "* * * * *"
     expected:
       status_code: 401
+      code: 401
       detail: Not authenticated
