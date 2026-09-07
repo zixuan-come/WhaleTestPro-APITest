@@ -229,3 +229,10 @@ class TestRunCase:
         results = resp.json()
         assert len(results) == len(cids), f"结果数应与传入 case 数一致: {resp.text}"
         assert all(r["passed"] for r in results), f"串联每条都应 passed: {resp.text}"
+
+        reports = project_client.get("/reports", params={"page": 1, "page_size": 100})
+        assert reports.status_code == 200, f"链路执行后查询普通报告失败: {reports.text}"
+        report_case_ids = {item["case_id"] for item in reports.json()["items"]}
+        assert set(cids).issubset(report_case_ids), (
+            f"直接链路执行后应为每个步骤生成普通报告: expected={cids}, response={reports.text}"
+        )
