@@ -1,0 +1,91 @@
+write_resources:
+  - case_id: interface_write
+    resource: interface
+    permission: interface.write
+    collection: /interfaces
+    delete_path: /interfaces/{id}
+
+  - case_id: case_write
+    resource: case
+    permission: case.write
+    collection: /cases
+    delete_path: /cases/{id}
+
+  - case_id: environment_write
+    resource: environment
+    permission: environment.write
+    collection: /environments
+    delete_path: /environments/{id}
+
+  - case_id: mock_write
+    resource: mock
+    permission: mock.write
+    collection: /mocks
+    delete_path: /mocks/{id}
+
+  - case_id: schedule_write
+    resource: schedule
+    permission: schedule.write
+    collection: /schedules
+    delete_path: /schedules/{id}
+
+  - case_id: perf_write
+    resource: perf
+    permission: perf.write
+    collection: /perf/tasks
+    delete_path: /perf/tasks/{id}
+
+  - case_id: scenario_write
+    resource: scenario
+    permission: scenario.write
+    collection: /scenarios
+    delete_path: /scenarios/{id}
+
+  - case_id: suite_write
+    resource: suite
+    permission: suite.write
+    collection: /suites
+    delete_path: /suites/{id}
+
+execute_resources:
+  - case_id: interface_execute
+    resource: interface
+    write_permission: interface.write
+    path: /interfaces/{interface_id}/run
+    expected_status: 200
+
+  - case_id: case_execute
+    resource: case
+    write_permission: case.write
+    path: /cases/{case_id}/run
+    expected_status: 200
+
+  - case_id: scenario_execute
+    resource: scenario
+    write_permission: scenario.write
+    path: /scenarios/{scenario_id}/run
+    expected_status: 200
+
+  - case_id: suite_execute
+    resource: suite
+    write_permission: suite.write
+    path: /suites/{suite_id}/run
+    expected_status: 200
+
+  - case_id: regression_execute
+    resource: regression
+    path: /regression
+    expected_status: 200
+
+  - case_id: perf_execute_reaches_service
+    resource: perf
+    write_permission: perf.write
+    path: /perf/tasks/999999/run
+    expected_status: 404
+    expected_message: 压测任务 id=999999 不存在
+
+  - case_id: traffic_execute_reaches_service
+    resource: traffic
+    path: /traffic/replay/999999
+    expected_status: 404
+    expected_message: 录制记录不存在

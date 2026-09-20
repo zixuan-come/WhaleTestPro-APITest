@@ -34,7 +34,7 @@ add_project_member_fail:
       role: member
     expected:
       status_code: 403
-      detail: 只有项目所有者或管理员可以管理项目成员
+      detail: 无权执行 project_member.manage 操作
 
   - case_id: duplicate_project_member
     actor: owner
@@ -42,7 +42,7 @@ add_project_member_fail:
       role: member
     expected:
       status_code: 409
-      detail: 用户已经是项目成员
+      detail: 用户已经是团队成员
 
   - case_id: add_nonexistent_user
     actor: owner

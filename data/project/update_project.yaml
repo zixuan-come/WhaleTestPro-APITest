@@ -40,13 +40,14 @@ update_project_fail:
       status_code: 401
       detail: Not authenticated
 
+update_project_role_access:
   - case_id: update_project_as_admin
     actor: admin
     request:
       name_prefix: auto_project_admin_update_
       description: API automation admin update
     expected:
-      status_code: 403
+      status_code: 200
 
   - case_id: update_project_as_member
     actor: member

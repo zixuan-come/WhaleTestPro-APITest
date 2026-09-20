@@ -197,7 +197,7 @@ register_success:
 register_fail:
   - case_id: register_duplicate_user
     request:
-      username_prefix: auto_reg_dup_
+      username_prefix: auto_dup_
       password: auto_reg_pwd
     expected:
       status_code: 400

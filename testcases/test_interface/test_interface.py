@@ -117,7 +117,7 @@ class TestDeleteInterface:
     def test_delete_success(self, case, project_client, unique_name):
         skip_if_pending(case)
         created = project_client.post("/interfaces", json={
-            "name": unique_name("auto_if_del_"), "method": "GET", "url": "http://localhost:8001/health",
+            "name": unique_name("auto_if_del_"), "method": "GET", "url": "/health",
         })
         assert created.status_code == 201, f"前置建接口应成功: {created.text}"
         iid = created.json()["id"]
@@ -138,7 +138,7 @@ class TestInterfaceCategory:
         old_cat = unique_name("auto_cat_old_")
         created = project_client.post("/interfaces", json={
             "name": unique_name("auto_if_cat_"), "method": "GET",
-            "url": "http://localhost:8001/health", "category": old_cat,
+            "url": "/health", "category": old_cat,
         })
         assert created.status_code == 201, f"前置建接口应成功: {created.text}"
         api_cleanup(f"/interfaces/{created.json()['id']}")
@@ -154,7 +154,7 @@ class TestInterfaceCategory:
         cat = unique_name("auto_cat_del_")
         created = project_client.post("/interfaces", json={
             "name": unique_name("auto_if_cat_"), "method": "GET",
-            "url": "http://localhost:8001/health", "category": cat,
+            "url": "/health", "category": cat,
         })
         assert created.status_code == 201, f"前置建接口应成功: {created.text}"
         api_cleanup(f"/interfaces/{created.json()['id']}")

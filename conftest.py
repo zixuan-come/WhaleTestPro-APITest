@@ -116,9 +116,10 @@ def auth_client(access_token):
 def member_users(client, ensure_test_user):
     """创建成员权限测试所需的三种独立身份，并返回其黑盒客户端。"""
     users = {}
+    role_prefixes = {"admin": "adm", "member": "mem", "outsider": "out"}
 
     for role in ("admin", "member", "outsider"):
-        username = f"api_member_{role}_{uuid.uuid4().hex[:8]}"
+        username = f"api_{role_prefixes[role]}_{uuid.uuid4().hex[:8]}"
         password = PASSWORD
 
         register = client.post(
@@ -318,7 +319,7 @@ def seed_interface(project_client, unique_name, api_cleanup):
         resp = project_client.post("/interfaces", json={
             "name": unique_name("auto_if_"),
             "method": "GET",
-            "url": "http://localhost:8001/health",
+            "url": "/health",
         })
         assert resp.status_code == 201, f"前置建接口应成功: {resp.text}"
         iid = resp.json()["id"]

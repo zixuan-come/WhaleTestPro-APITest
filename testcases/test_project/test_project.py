@@ -13,6 +13,7 @@ detail_success = load_yaml("data/project/get_project_detail.yaml")["get_project_
 detail_fail = load_yaml("data/project/get_project_detail.yaml")["get_project_detail_fail"]
 update_success = load_yaml("data/project/update_project.yaml")["update_project_success"]
 update_fail = load_yaml("data/project/update_project.yaml")["update_project_fail"]
+update_role_access = load_yaml("data/project/update_project.yaml")["update_project_role_access"]
 delete_success = load_yaml("data/project/delete_project.yaml")["delete_project_success"]
 delete_fail = load_yaml("data/project/delete_project.yaml")["delete_project_fail"]
 
@@ -191,16 +192,10 @@ class TestUpdateProject:
 
     @pytest.mark.parametrize(
         "case",
-        [
-            item for item in update_fail
-            if item["case_id"] in {
-                "update_project_as_admin",
-                "update_project_as_member",
-            }
-        ],
+        update_role_access,
         ids=lambda case: case["case_id"],
     )
-    def test_update_role_fail(self, case, member_project_context, unique_name):
+    def test_update_role_access(self, case, member_project_context, unique_name):
         context = member_project_context
         response = context["clients"][case["actor"]].put(
             f"/projects/{context['project_id']}",

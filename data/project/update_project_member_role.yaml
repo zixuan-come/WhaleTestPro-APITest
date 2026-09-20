@@ -34,7 +34,7 @@ update_project_member_role_fail:
       role: admin
     expected:
       status_code: 403
-      detail: 只有项目所有者或管理员可以管理项目成员
+      detail: 无权执行 project_member.manage 操作
 
   - case_id: update_nonexistent_project_member
     actor: owner

@@ -3,7 +3,7 @@ create_success:
     request:
       name_prefix: auto_if_create_
       method: GET
-      url: http://localhost:8001/health
+      url: /health
     expected:
       status_code: 201
       code: 0
@@ -18,7 +18,7 @@ create_fail:
     request:
       name_prefix: auto_if_no_token_
       method: GET
-      url: http://localhost:8001/health
+      url: /health
     expected:
       status_code: 401
       code: 401
@@ -28,7 +28,7 @@ create_fail:
     request:
       name_prefix: auto_if_no_proj_
       method: GET
-      url: http://localhost:8001/health
+      url: /health
     expected:
       status_code: 422
       code: 422
@@ -64,7 +64,7 @@ update_success:
     request:
       name_prefix: auto_if_upd_
       method: POST
-      url: http://localhost:8001/health
+      url: /health
     expected:
       status_code: 200
       code: 0

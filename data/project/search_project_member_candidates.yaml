@@ -16,7 +16,7 @@ search_project_member_candidates_fail:
     actor: member
     expected:
       status_code: 403
-      detail: 只有项目所有者或管理员可以管理项目成员
+      detail: 无权执行 project_member.manage 操作
 
   - case_id: outsider_search_project_member_candidates
     actor: outsider
