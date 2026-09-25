@@ -387,6 +387,22 @@ def test_failed_task_cleanup_does_not_cascade_delete_project(monkeypatch):
     assert closed == []
 
 
+def test_ci_has_single_opt_in_perf_gate_and_fixture_cleanup():
+    import yaml
+    pipeline = yaml.load((Path(__file__).resolve().parents[1] / ".github/workflows/ci.yml").read_text(encoding="utf-8"),
+                         Loader=yaml.BaseLoader)
+    assert pipeline["jobs"]["api-test"]["needs"] == "offline-contract"
+    steps = pipeline["jobs"]["api-test"]["steps"]
+    gates = [step for step in steps if "pytest testcases/test_perf_core" in step.get("run", "")]
+    assert len(gates) == 1 and "--reruns 0" in gates[0]["run"]
+    assert gates[0]["env"]["WHALE_PERF_CORE_ALLOW_WRITES"] == "1"
+    assert gates[0]["env"]["WHALE_PERF_ALLOW_LOAD"] == "1"
+    assert gates[0]["env"]["WHALE_PERF_FIXTURE_BASE_URL"] == "http://whaletestpro-perf-fixture:8090"
+    assert all("not perf_core" in step["run"] for step in steps if "pytest -m 'integration" in step.get("run", ""))
+    cleanup = next(step for step in steps if "docker rm -f whaletestpro-perf-fixture" in step.get("run", ""))
+    assert cleanup["if"] == "always()"
+
+
 @pytest.mark.parametrize("method,path,body,expected", [
     ("GET", "/health", b"", 200),
     ("POST", "/login", b"", 400),

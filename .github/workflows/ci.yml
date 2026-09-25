@@ -9,7 +9,31 @@ on:
   workflow_dispatch:        # 也允许手动点按钮触发
 
 jobs:
+  offline-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: apitest
+      - uses: actions/checkout@v4
+        with:
+          repository: zixuan-come/WhaleTestPro
+          path: backend
+          token: ${{ secrets.BACKEND_REPO_TOKEN }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: 安装离线契约测试依赖
+        run: python -m pip install -r backend/requirements.txt -r apitest/requirements.txt
+      - name: 离线契约门禁（禁止真实 HTTP 与 Docker 前置）
+        working-directory: apitest
+        env:
+          WHALE_BACKEND_PATH: ${{ github.workspace }}/backend
+          LOCUST_SKIP_MONKEY_PATCH: "1"
+        run: python -m pytest -m offline --reruns 0
+
   api-test:
+    needs: offline-contract
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +57,7 @@ jobs:
         run: |
           cat > .env <<'EOF'
           SECRET_KEY=ci-test-secret-key-not-for-prod
+          LOCUST_CONTROL_TOKEN=ci-locust-control-token-not-for-prod
           MYSQL_ROOT_PASSWORD=ci_root_pwd
           DATABASE_URL=mysql+pymysql://root:ci_root_pwd@127.0.0.1:3306/whale_test_pro?charset=utf8mb4
           SHADOW_DATABASE_URL=mysql+pymysql://root:ci_root_pwd@127.0.0.1:3306/whale_test_pro_shadow?charset=utf8mb4
@@ -52,10 +77,10 @@ jobs:
           docker exec whaletestpro-mysql-1 mysql -uroot -pci_root_pwd \
             -e "CREATE DATABASE IF NOT EXISTS whale_test_pro_shadow;"
 
-      # 5. 起 app + 依赖(redis/rabbitmq)。不起 worker/prometheus/grafana/frontend/locust —— 黑盒接口测试用不到
+      # 5. 起 app、Worker 和 Locust；异步压测必须验证实际执行结果。
       - name: 起后端 app
         working-directory: backend
-        run: docker compose -p whaletestpro up -d --build app
+        run: docker compose -p whaletestpro up -d --build app worker locust-master locust-worker
 
       # 6. 轮询 /health/ready,等 app 和主库/影子库真正可用
       - name: 等待 app 就绪
@@ -70,6 +95,21 @@ jobs:
           docker logs whaletestpro-app-1 --tail 80
           exit 1
 
+      - name: 等待 Locust Worker 连接
+        run: |
+          for i in $(seq 1 40); do
+            if docker compose --env-file backend/.env -p whaletestpro -f backend/docker-compose.yml exec -T locust-master \
+              python -c 'import os,urllib.request; r=urllib.request.Request("http://localhost:8089/stats/requests", headers={"X-Locust-Control-Token":os.environ["LOCUST_CONTROL_TOKEN"]}); print(urllib.request.urlopen(r,timeout=5).read().decode())' | \
+              python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("workers") else 1)'; then
+              echo "Locust Worker 已连接"
+              exit 0
+            fi
+            sleep 3
+          done
+          docker logs whaletestpro-locust-master-1 --tail 80
+          docker logs whaletestpro-locust-worker-1 --tail 80
+          exit 1
+
       # 7. 装 Python + 测试依赖
       - name: 装 Python
         uses: actions/setup-python@v5
@@ -82,7 +122,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 8. 给测试仓写 .env(config.py require_env 要 WHALE_USERNAME/PASSWORD)
+      # 8. 给集成账号前置提供 .env 默认值；显式进程目标和安全开关优先。
       - name: 准备测试 .env
         working-directory: apitest
         run: |
@@ -90,17 +130,58 @@ jobs:
           WHALE_BASE_URL=http://localhost:8001
           WHALE_USERNAME=admin
           WHALE_PASSWORD=admin
+          WHALE_PERF_BASE_URL=http://app:8000
           EOF
 
-      # 9. 冒烟门禁:先只跑核心链路(-m smoke),挂了就快速失败,不必等全量
+      # 独立核心回归只在 CI 的临时 Compose 环境显式允许写入。
+      - name: 核心链路 HTTP 门禁
+        working-directory: apitest
+        env:
+          WHALE_CORE_ALLOW_WRITES: "1"
+          LOCUST_SKIP_MONKEY_PATCH: "1"
+        run: python -m pytest testcases/test_core --reruns 0 --alluredir=allure-results
+
+      - name: 启动专用压测夹具（不开放宿主端口）
+        working-directory: backend
+        run: |
+          image=$(docker compose -p whaletestpro images -q app)
+          test -n "$image"
+          docker run -d --name whaletestpro-perf-fixture --network whaletestpro_whale \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            -v "$GITHUB_WORKSPACE/apitest/scripts/perf_fixture_server.py:/fixture/server.py:ro" \
+            --entrypoint python "$image" -B /fixture/server.py --host 0.0.0.0 --port 8090
+          for i in $(seq 1 20); do
+            if docker compose -p whaletestpro exec -T app python -c \
+              'import json,urllib.request; r=urllib.request.urlopen("http://whaletestpro-perf-fixture:8090/health",timeout=3); assert json.load(r)["fixture"] == "whale-perf-core"'; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs whaletestpro-perf-fixture --tail 30
+          exit 1
+
+      - name: 压测配置与链路核心 HTTP 门禁
+        working-directory: apitest
+        env:
+          WHALE_PERF_CORE_ALLOW_WRITES: "1"
+          WHALE_PERF_ALLOW_LOAD: "1"
+          WHALE_PERF_FIXTURE_BASE_URL: http://whaletestpro-perf-fixture:8090
+          LOCUST_SKIP_MONKEY_PATCH: "1"
+        run: python -m pytest testcases/test_perf_core --reruns 0 --alluredir=allure-results
+
+      # 9. 其余冒烟门禁，核心回归已单独执行，不重复登录。
       - name: 冒烟门禁
         working-directory: apitest
-        run: pytest -m smoke
+        run: pytest -m 'integration and smoke and not core_flow and not perf_core'
 
       # 10. 跑全量黑盒测试,产出 allure 原始结果
       - name: 跑接口测试
         working-directory: apitest
-        run: pytest --alluredir=allure-results
+        run: pytest -m 'integration and not core_flow and not perf_core' --alluredir=allure-results
+
+      - name: 清理专用压测夹具
+        if: always()
+        run: docker rm -f whaletestpro-perf-fixture 2>/dev/null || true
 
       # 11. 上传 allure 原始结果做产物(失败也传)
       - name: 上传 Allure 结果

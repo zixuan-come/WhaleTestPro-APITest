@@ -1,10 +1,12 @@
 """Safety regressions using synthetic .env and fixture transports only."""
+import inspect
 from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 from packaging.requirements import Requirement
+
 import config
-import inspect
-from types import SimpleNamespace
 from tests.test_fixture_contract import _fixture_module
 from tests.test_perf_core_contract import isolated_perf_api, _task
 from common.core_flow import business
@@ -17,6 +19,39 @@ def test_offline_guard_redis_dependency_is_declared():
     names = {Requirement(line.split("#", 1)[0].strip()).name.lower()
              for line in lines if line.split("#", 1)[0].strip()}
     assert "redis" in names, "Redis I/O guard must not rely on backend-only dependencies"
+
+
+def test_runtime_target_priority_is_documented():
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    assert "进程环境变量优先" in readme
+    assert "它会覆盖同名环境变量" not in readme
+
+
+def test_perf_owner_fixture_generates_valid_registration_credentials(monkeypatch):
+    from testcases.test_perf_core import conftest as fixtures
+    monkeypatch.setenv("WHALE_PERF_CORE_ALLOW_WRITES", "1")
+    registrations = []
+
+    class SyntheticClient:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def post(self, path, json):
+            if path == "/auth/register":
+                registrations.append(json.copy())
+                assert 4 <= len(json["username"]) <= 20
+                assert 4 <= len(json["password"]) <= 20
+                data, status = {"id": 1}, 201
+            else:
+                assert path == "/auth/login" and json == registrations[0]
+                data, status = {"access_token": "synthetic-owner-token"}, 200
+            return SimpleNamespace(status_code=status, envelope_json=lambda: {
+                "code": 0, "message": "synthetic-success", "data": data})
+
+    monkeypatch.setattr(fixtures, "RequestUtil", SyntheticClient)
+    assert fixtures.perf_owner.__wrapped__()["id"] == 1
+    assert len(registrations) == 1
 
 
 @pytest.mark.parametrize("key,value", [
@@ -96,32 +131,6 @@ def test_verified_perf_cleanup_allows_normal_parent_cleanup(status):
     with pytest.raises(StopIteration):
         next(cleanup)
     assert not state.retained_projects and not state.retained_teams
-
-
-def test_perf_owner_fixture_generates_valid_registration_credentials(monkeypatch):
-    from testcases.test_perf_core import conftest as fixtures
-    monkeypatch.setenv("WHALE_PERF_CORE_ALLOW_WRITES", "1")
-    registrations = []
-
-    class SyntheticClient:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def post(self, path, json):
-            if path == "/auth/register":
-                registrations.append(json.copy())
-                assert 4 <= len(json["username"]) <= 20
-                assert 4 <= len(json["password"]) <= 20
-                data, status = {"id": 1}, 201
-            else:
-                assert path == "/auth/login" and json == registrations[0]
-                data, status = {"access_token": "synthetic-owner-token"}, 200
-            return SimpleNamespace(status_code=status, envelope_json=lambda: {
-                "code": 0, "message": "synthetic-success", "data": data})
-
-    monkeypatch.setattr(fixtures, "RequestUtil", SyntheticClient)
-    assert fixtures.perf_owner.__wrapped__()["id"] == 1
-    assert len(registrations) == 1
 
 
 @pytest.mark.parametrize("status", ["queued", "running", "done", "failed", "cancelled"])
