@@ -1,4 +1,7 @@
 httpx
+requests  # 离线测试 I/O 守卫与后端跨仓契约依赖
+redis~=8.0.0  # tests/conftest.py 的 I/O 守卫；与后端依赖版本范围一致
+PyJWT>=2.0,<3.0  # JWT assertions used by login tests
 pytest
 pytest-cov
 pytest-rerunfailures   # pytest.ini 的 --reruns 抗网络抖动依赖它,不装 CI 会报未知参数

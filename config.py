@@ -13,7 +13,8 @@ def load_env_file(path=BASE_DIR / ".env"):
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        os.environ[key.strip()] = value.strip().strip('"').strip("'")
+        # Process/CI flags and isolated targets are explicit; .env is defaults only.
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def require_env(name):
@@ -26,9 +27,12 @@ def require_env(name):
 load_env_file()
 
 BASE_URL = os.getenv("WHALE_BASE_URL", "http://localhost:8001")
-USERNAME = require_env("WHALE_USERNAME")
-PASSWORD = require_env("WHALE_PASSWORD")
+# Validate credentials when integration fixtures execute, not while collecting
+# offline tests. Offline runs need neither a real account nor a live platform.
+USERNAME = os.getenv("WHALE_USERNAME")
+PASSWORD = os.getenv("WHALE_PASSWORD")
 
 # 用例执行引擎在被测容器内部发起请求,访问被测服务自身要用容器内地址(8000),
 # 而不是宿主映射端口(8001)。给 case/scenario 执行用例的环境 base_url 用这个。
 RUNNER_BASE_URL = os.getenv("WHALE_RUNNER_BASE_URL", "http://localhost:8000")
+PERF_BASE_URL = os.getenv("WHALE_PERF_BASE_URL", "http://app:8000")

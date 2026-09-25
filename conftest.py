@@ -46,7 +46,7 @@ def clear_login_rate_limit():
         pass
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def reset_login_rate_limit():
     """会话开始前清掉登录限流计数桶,保证测试套可在 60s 内重复跑。
 
@@ -56,7 +56,7 @@ def reset_login_rate_limit():
     """
     clear_login_rate_limit()
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def ensure_test_user(reset_login_rate_limit):
     """自举测试账号:注册 config 里的 USERNAME/PASSWORD,已存在(400)则忽略。
 
@@ -64,9 +64,21 @@ def ensure_test_user(reset_login_rate_limit):
     没有这个账号 → 登录必挂。这里保证被测账号一定存在,本地/CI 都能跑。
     依赖 reset_login_rate_limit 只为固定执行顺序(先清限流桶,再注册)。
     """
-    RequestUtil(BASE_URL).post(
+    assert USERNAME and PASSWORD, "集成测试需要配置 WHALE_USERNAME 和 WHALE_PASSWORD"
+    response = RequestUtil(BASE_URL).post(
         "/auth/register", json={"username": USERNAME, "password": PASSWORD}
     )
+    assert response.status_code in {201, 400}, f"测试账号自举失败: HTTP {response.status_code}"
+
+
+def pytest_collection_modifyitems(items):
+    root = Path(__file__).resolve().parent
+    for item in items:
+        relative = item.path.relative_to(root)
+        if relative.parts[0] == "tests":
+            item.add_marker(pytest.mark.offline)
+        elif relative.parts[0] == "testcases":
+            item.add_marker(pytest.mark.integration)
 
 
 @pytest.fixture(scope="session")
