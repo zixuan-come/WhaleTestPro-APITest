@@ -1,0 +1,51 @@
+list_team_invitations_success:
+  - case_id: pending_invitation_page
+    request:
+      page: 1
+      page_size: 1
+      status: pending
+    expected:
+      status_code: 200
+      body_type: dict
+      required_fields: [items, total, page, page_size, total_pages]
+      field_types:
+        items: list
+        total: int
+        page: int
+        page_size: int
+        total_pages: int
+
+list_team_invitations_fail:
+  - case_id: anonymous_cannot_list_invitations
+    actor: anonymous
+    request:
+      page: 1
+      page_size: 20
+      status: pending
+    expected:
+      status_code: 401
+
+  - case_id: invitation_page_size_too_large
+    actor: invitee
+    request:
+      page: 1
+      page_size: 101
+      status: pending
+    expected:
+      status_code: 422
+
+invitation_consistency:
+  - case_id: duplicate_pending_invitation_returns_409
+    expected:
+      status_code: 409
+      detail: 该用户已有待处理邀请
+
+  - case_id: accept_leave_and_accept_again
+    expected:
+      status_code: 200
+      body_type: dict
+
+  - case_id: repeated_response_returns_409
+    expected:
+      status_code: 409
+      detail: 邀请已经处理
