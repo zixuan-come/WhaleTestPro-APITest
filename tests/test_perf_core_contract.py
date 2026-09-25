@@ -18,7 +18,7 @@ from common.core_flow import business
 from common.perf_cases import single_plan
 from common.request_util import RequestUtil
 from scripts.perf_fixture_server import response_for
-from testcases.test_perf.test_perf import _payload
+from common.perf_flow import task_payload as _payload
 from testcases.test_perf_core import test_perf_core as core
 
 

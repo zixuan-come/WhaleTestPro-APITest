@@ -7,7 +7,7 @@ import pytest
 from common.core_flow import CoreWorkspace, business
 from common.request_util import RequestUtil
 from config import BASE_URL
-from testcases.test_perf.test_perf import _stop_and_delete
+from common.perf_flow import stop_and_delete as _stop_and_delete
 
 
 @pytest.fixture(scope="session", autouse=True)

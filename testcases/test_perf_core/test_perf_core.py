@@ -7,7 +7,7 @@ import pytest
 
 from common.core_flow import business
 from common.perf_cases import config_cases, request_for, single_plan, chain_plan
-from testcases.test_perf.test_perf import _payload
+from common.perf_flow import task_payload as _payload
 
 pytestmark = [pytest.mark.perf_core, allure.feature("HTTP 与链路压测核心回归")]
 CONFIG_CASES = config_cases()
