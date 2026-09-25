@@ -18,9 +18,9 @@ def _ids(cases):
     return [c["case_id"] for c in cases]
 
 
-def _create(project_client, unique_name, prefix, cron):
+def _create(project_client, unique_name, prefix, cron, env_id):
     resp = project_client.post("/schedules", json={
-        "name": unique_name(prefix), "cron": cron,
+        "name": unique_name(prefix), "cron": cron, "env_id": env_id, "enabled": False,
     })
     assert resp.status_code == 201, f"前置建定时任务应成功: {resp.text}"
     return resp.json()["id"]
@@ -31,24 +31,47 @@ def _create(project_client, unique_name, prefix, cron):
 class TestCreateSchedule:
 
     @pytest.mark.parametrize("case", create_success, ids=_ids(create_success))
-    def test_create_success(self, case, project_client, unique_name, api_cleanup):
+    def test_create_success(self, case, project_client, unique_name, api_cleanup, runner_env):
         skip_if_pending(case)
         req = case["request"]
         name = unique_name(req["name_prefix"])
         resp = project_client.post("/schedules", json={
-            "name": name, "cron": req["cron"],
+            "name": name, "cron": req["cron"], "env_id": runner_env, "enabled": False,
         })
         assert_response(resp, case["expected"])
-        assert_values(resp, {"name": name, "cron": req["cron"]})
+        assert_values(resp, {"name": name, "cron": req["cron"], "env_id": runner_env})
         api_cleanup(f"/schedules/{resp.json()['id']}")
+        assert_values(project_client.get(f"/schedules/{resp.json()['id']}"), {"env_id": runner_env})
+
+    @pytest.mark.parametrize("env_id, expected_status", [(None, 422), (0, 422), (999999999, 404)])
+    def test_create_rejects_invalid_environment(self, env_id, expected_status, project_client, unique_name):
+        payload = {"name": unique_name("auto_sch_bad_env_"), "cron": "0 0 * * *", "enabled": False}
+        if env_id is not None:
+            payload["env_id"] = env_id
+        response = project_client.post("/schedules", json=payload)
+        assert_response(response, {"status_code": expected_status, "code": expected_status})
+
+    def test_environment_from_other_project_is_rejected(self, project_client, team_member_context, unique_name):
+        from common.request_util import RequestUtil
+        from config import BASE_URL
+        context = team_member_context
+        foreign = RequestUtil(BASE_URL, headers={**context["clients"]["owner"].headers,
+                                                "X-Project-Id": str(context["project_id"])})
+        environment = foreign.post("/environments", json={"name": unique_name("auto_foreign_env_"), "base_url": "http://isolated.invalid"})
+        assert environment.status_code == 201, environment.text
+        try:
+            payload = {"name": unique_name("auto_sch_foreign_"), "cron": "0 0 * * *", "env_id": environment.json()["id"], "enabled": False}
+            assert_response(project_client.post("/schedules", json=payload), {"status_code": 404, "code": 404})
+        finally:
+            foreign.delete(f"/environments/{environment.json()['id']}")
 
     @pytest.mark.parametrize("case", create_no_token, ids=_ids(create_no_token))
-    def test_create_without_token(self, case, project_only_client, unique_name, api_cleanup):
+    def test_create_without_token(self, case, project_only_client, unique_name, api_cleanup, runner_env):
         """不带 token 创建 schedule → 401 Not authenticated。"""
         skip_if_pending(case)
         req = case["request"]
         resp = project_only_client.post("/schedules", json={
-            "name": unique_name(req["name_prefix"]), "cron": req["cron"],
+            "name": unique_name(req["name_prefix"]), "cron": req["cron"], "env_id": runner_env,
         })
         assert_response(resp, case["expected"])
         if resp.status_code < 300:
@@ -71,12 +94,13 @@ class TestListSchedule:
 class TestGetScheduleDetail:
 
     @pytest.mark.parametrize("case", detail_success, ids=_ids(detail_success))
-    def test_detail_success(self, case, project_client, unique_name, api_cleanup):
+    def test_detail_success(self, case, project_client, unique_name, api_cleanup, runner_env):
         skip_if_pending(case)
-        sid = _create(project_client, unique_name, "auto_sch_get_", "* * * * *")
+        sid = _create(project_client, unique_name, "auto_sch_get_", "* * * * *", runner_env)
         api_cleanup(f"/schedules/{sid}")
         resp = project_client.get(f"/schedules/{sid}")
         assert_response(resp, case["expected"])
+        assert_values(resp, {"env_id": runner_env})
 
     @pytest.mark.parametrize("case", detail_fail, ids=_ids(detail_fail))
     def test_detail_fail(self, case, project_client):
@@ -90,19 +114,35 @@ class TestGetScheduleDetail:
 class TestUpdateSchedule:
 
     @pytest.mark.parametrize("case", update_success, ids=_ids(update_success))
-    def test_update_success(self, case, project_client, unique_name, api_cleanup):
+    def test_update_success(self, case, project_client, unique_name, api_cleanup, runner_env):
         skip_if_pending(case)
-        sid = _create(project_client, unique_name, "auto_sch_pre_", "* * * * *")
+        sid = _create(project_client, unique_name, "auto_sch_pre_", "* * * * *", runner_env)
         api_cleanup(f"/schedules/{sid}")
         req = case["request"]
         name = unique_name(req["name_prefix"])
         resp = project_client.put(f"/schedules/{sid}", json={
-            "name": name, "cron": req["cron"],
+            "name": name, "cron": req["cron"], "env_id": runner_env,
         })
         assert_response(resp, case["expected"])
-        assert_values(resp, {"name": name, "cron": req["cron"]})
+        assert_values(resp, {"name": name, "cron": req["cron"], "env_id": runner_env})
         again = project_client.get(f"/schedules/{sid}")
-        assert_values(again, {"name": name, "cron": req["cron"]})
+        assert_values(again, {"name": name, "cron": req["cron"], "env_id": runner_env})
+
+    def test_toggle_preserves_suite_and_environment(self, project_client, unique_name, api_cleanup, runner_env):
+        suite = project_client.post("/suites", json={"name": unique_name("auto_sch_suite_"), "type": "case", "case_ids": []})
+        assert suite.status_code == 201, suite.text
+        suite_id = suite.json()["id"]
+        api_cleanup(f"/suites/{suite_id}")
+        name = unique_name("auto_sch_toggle_")
+        created = project_client.post("/schedules", json={"name": name, "cron": "0 0 * * *", "env_id": runner_env, "suite_id": suite_id, "enabled": False})
+        assert created.status_code == 201, created.text
+        path = f"/schedules/{created.json()['id']}"
+        api_cleanup(path)
+        for enabled in (True, False):
+            updated = project_client.put(path, json={"name": name, "cron": "0 0 * * *", "env_id": runner_env, "enabled": enabled})
+            assert_response(updated, {"status_code": 200})
+            assert_values(updated, {"env_id": runner_env, "suite_id": suite_id, "enabled": enabled})
+            assert_values(project_client.get(path), {"env_id": runner_env, "suite_id": suite_id, "enabled": enabled})
 
 
 @allure.feature("定时任务")
@@ -110,9 +150,10 @@ class TestUpdateSchedule:
 class TestDeleteSchedule:
 
     @pytest.mark.parametrize("case", delete_success, ids=_ids(delete_success))
-    def test_delete_success(self, case, project_client, unique_name):
+    def test_delete_success(self, case, project_client, unique_name, runner_env, api_cleanup):
         skip_if_pending(case)
-        sid = _create(project_client, unique_name, "auto_sch_del_", "* * * * *")
+        sid = _create(project_client, unique_name, "auto_sch_del_", "* * * * *", runner_env)
+        api_cleanup(f"/schedules/{sid}")
         resp = project_client.delete(f"/schedules/{sid}")
         assert_response(resp, case["expected"])
         again = project_client.get(f"/schedules/{sid}")

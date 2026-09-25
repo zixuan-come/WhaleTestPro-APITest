@@ -15,6 +15,8 @@ ready_success:
         - status
         - main_database
         - shadow_database
+        - redis
+        - rabbitmq
 
 metrics_success:
   - case_id: metrics_ok

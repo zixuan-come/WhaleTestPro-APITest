@@ -29,7 +29,7 @@ class TestHealth:
 
     @pytest.mark.parametrize("case", ready_success, ids=_ids(ready_success))
     def test_health_ready(self, case, client):
-        """/health/ready 同时检查主库和影子库是否可用。"""
+        """/health/ready 检查数据库、Redis 和 RabbitMQ 是否可用。"""
         skip_if_pending(case)
         resp = client.get("/health/ready")
         assert_response(resp, case["expected"])
@@ -38,7 +38,9 @@ class TestHealth:
             "status": "ready",
             "main_database": "ok",
             "shadow_database": "ok",
-        }, f"ready 应确认主库和影子库均可用: {resp.text}"
+            "redis": "ok",
+            "rabbitmq": "ok",
+        }, f"ready 应确认关键依赖均可用: {resp.text}"
 
 
 @allure.feature("系统")

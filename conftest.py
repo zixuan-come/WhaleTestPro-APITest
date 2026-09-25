@@ -8,6 +8,19 @@ from config import BASE_URL, USERNAME, PASSWORD, RUNNER_BASE_URL
 from common.request_util import RequestUtil
 
 TEST_PROJECT_NAME_PREFIX = "auto_test_project_"
+_cleanup_log = logging.getLogger("whale.cleanup")
+
+
+class ResourceCleanupState:
+    def __init__(self):
+        self.retained_projects = set()
+        self.retained_teams = set()
+
+
+@pytest.fixture(scope="session")
+def cleanup_state():
+    """Never cascade-delete parents after an unconfirmed perf cleanup."""
+    return ResourceCleanupState()
 
 # ---- HTTP 日志落文件 ----------------------------------------------------
 # 把 whale.http(RequestUtil 产出的每条请求日志)挂到 logs/http.log。
@@ -165,16 +178,43 @@ def member_users(client, ensure_test_user):
     return users
 
 
+@pytest.fixture(scope="session")
+def team_factory(auth_client, cleanup_state):
+    """Create explicit teams and clean them after dependent projects are removed."""
+    created = []
+    def make(owner=None):
+        owner = owner or auth_client
+        response = owner.post("/teams", json={"name": f"auto_team_{uuid.uuid4().hex[:12]}"})
+        assert response.status_code == 201, f"前置建团队失败: {response.text}"
+        team_id = response.json()["id"]
+        created.append((owner, team_id))
+        return team_id
+    yield make
+    for owner, team_id in reversed(created):
+        if team_id in cleanup_state.retained_teams:
+            _cleanup_log.warning("压测清理未确认，保留测试团队 id=%s", team_id)
+            continue
+        response = owner.delete(f"/teams/{team_id}")
+        assert response.status_code in {200, 404}, f"清理测试团队失败: {response.text}"
+
+
+@pytest.fixture(scope="session")
+def team_id(team_factory):
+    return team_factory()
+
+
 @pytest.fixture
-def team_member_context(auth_client, member_users, unique_name):
+def team_member_context(auth_client, member_users, unique_name, team_factory):
     """创建 owner/admin/member 团队上下文，供团队成员黑盒用例复用。"""
     project_ids = []
     team_ids = []
+    explicit_team_id = team_factory()
     created = auth_client.post(
         "/projects",
         json={
             "name": unique_name("auto_team_member_project_"),
             "description": "团队成员管理接口自动化测试项目",
+            "team_id": explicit_team_id,
         },
     )
     assert created.status_code == 201, f"成员测试项目创建失败: {created.text}"
@@ -214,6 +254,7 @@ def team_member_context(auth_client, member_users, unique_name):
             json={
                 "name": unique_name("auto_member_other_team_"),
                 "description": "跨团队成员权限测试项目",
+                "team_id": team_factory(),
             },
         )
         assert other.status_code == 201, f"跨团队测试项目创建失败: {other.text}"
@@ -277,13 +318,14 @@ def team_member_context(auth_client, member_users, unique_name):
 
 
 @pytest.fixture(scope="session")
-def project_id(auth_client):
+def project_id(auth_client, team_id, cleanup_state):
     project_name = f"{TEST_PROJECT_NAME_PREFIX}{uuid.uuid4().hex[:8]}"
     create_resp = auth_client.post(
         "/projects",
         json={
             "name": project_name,
-            "description": "接口自动化测试项目"
+            "description": "接口自动化测试项目",
+            "team_id": team_id,
         }
     )
     assert create_resp.status_code == 201, (
@@ -293,10 +335,20 @@ def project_id(auth_client):
     created_project_id = create_resp.json()["id"]
     yield created_project_id
 
+    if created_project_id in cleanup_state.retained_projects:
+        cleanup_state.retained_teams.add(team_id)
+        _cleanup_log.warning("压测清理未确认，保留测试项目 id=%s 和团队 id=%s",
+                             created_project_id, team_id)
+        return
     try:
-        auth_client.delete(f"/projects/{created_project_id}")
-    except Exception:
-        pass
+        reply = auth_client.delete(f"/projects/{created_project_id}")
+        if reply.status_code not in {200, 404}:
+            raise AssertionError(f"HTTP {reply.status_code}")
+    except Exception as exc:
+        cleanup_state.retained_projects.add(created_project_id)
+        cleanup_state.retained_teams.add(team_id)
+        raise AssertionError(f"项目清理未确认，保留项目 id={created_project_id} 和团队 id={team_id}；"
+                             f"错误类型：{type(exc).__name__}") from None
 
 
 @pytest.fixture(scope="session")
@@ -331,10 +383,10 @@ def unique_name():
 
 
 @pytest.fixture
-def api_cleanup(project_client):
+def api_cleanup(project_client, cleanup_state):
     """通用清理登记表：测试里 register("/interfaces/{id}") 登记创建出来的资源，
     用例结束后按后进先出统一删掉，保证黑盒测试可重复跑、不留垃圾数据。
-    删除失败(已被用例自己删/404)不该让用例误报，忽略即可。
+    404 表示资源已删除。压测删除失败必须报告并保留父项目，不做级联兜底。
     """
     paths = []
 
@@ -344,11 +396,19 @@ def api_cleanup(project_client):
 
     yield register
 
+    perf_errors = []
     for path in reversed(paths):
         try:
-            project_client.delete(path)
-        except Exception:
-            pass
+            reply = project_client.delete(path)
+            if path.startswith("/perf/tasks/") and reply.status_code not in {200, 404}:
+                perf_errors.append(f"{path}: HTTP {reply.status_code}")
+        except Exception as exc:
+            if path.startswith("/perf/tasks/"):
+                perf_errors.append(f"{path}: {type(exc).__name__}")
+    if perf_errors:
+        retained_project_id = int(project_client.headers["X-Project-Id"])
+        cleanup_state.retained_projects.add(retained_project_id)
+        raise AssertionError(f"压测清理失败，保留项目 id={retained_project_id}：" + "; ".join(perf_errors))
 
 
 @pytest.fixture
@@ -466,7 +526,3 @@ def project_cleanup(auth_client):
             auth_client.delete(f"/projects/{pid}")
         except Exception:
             pass
-
-
-
-

@@ -11,6 +11,20 @@ BODY_TYPE_MAP = {
 }
 
 
+def _forbidden_field_paths(value, forbidden, path="data"):
+    found = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            field_path = f"{path}.{key}"
+            if key.lower() in forbidden:
+                found.append(field_path)
+            found.extend(_forbidden_field_paths(item, forbidden, field_path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            found.extend(_forbidden_field_paths(item, forbidden, f"{path}[{index}]"))
+    return found
+
+
 def skip_if_pending(case):
     # 用例标了 pending（多为待开发确认的疑似 bug）就跳过，理由打进 skip 信息
     if case.get("pending"):
@@ -34,11 +48,16 @@ def assert_response(resp, expected):
         )
 
     # 响应体解析一次；非 JSON（理论上本 API 不会出现）时置 None，后续检查各自兜底
+    envelope = None
     try:
         envelope = resp.envelope_json() if hasattr(resp, "envelope_json") else resp.json()
         body = envelope.get("data") if isinstance(envelope, dict) and envelope.get("code") == 0 else envelope
     except Exception:
         body = None
+
+    forbidden = {"hashed_password", *(field.lower() for field in expected.get("forbidden_fields", []))}
+    leaked = _forbidden_field_paths(envelope, forbidden, path="response")
+    assert not leaked, f"响应包含禁止返回的字段: {leaked}"
 
     # 2. 响应体整体类型
     if "body_type" in expected:

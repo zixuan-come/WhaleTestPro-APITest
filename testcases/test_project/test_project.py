@@ -33,14 +33,35 @@ def _pick_client(case, auth_client, client):
 @allure.story("创建项目")
 class TestCreateProject:
 
+    @pytest.mark.parametrize("actor, expected_status", [("owner", 201), ("admin", 201), ("member", 403), ("outsider", 403)])
+    def test_explicit_team_creation_role_matrix(self, actor, expected_status, team_member_context, unique_name):
+        context = team_member_context
+        response = context["clients"][actor].post("/projects", json={
+            "name": unique_name("auto_project_role_"), "team_id": context["team_id"],
+        })
+        try:
+            assert_response(response, {"status_code": expected_status})
+            if expected_status == 201:
+                assert_values(response, {"team_id": context["team_id"]})
+        finally:
+            if response.status_code == 201:
+                context["clients"]["owner"].delete(f"/projects/{response.json()['id']}")
+
+    def test_create_requires_explicit_team(self, auth_client, unique_name):
+        response = auth_client.post("/projects", json={"name": unique_name("auto_no_team_")})
+        assert response.status_code == 422, response.text
+        errors = response.envelope_json()["data"]["errors"]
+        assert any(error["field"] == "team_id" for error in errors)
+
     @pytest.mark.smoke
     @pytest.mark.parametrize("case", create_success, ids=_ids(create_success))
-    def test_create_success(self, case, auth_client, unique_name, project_cleanup):
+    def test_create_success(self, case, auth_client, unique_name, project_cleanup, team_id):
         skip_if_pending(case)
         req = case["request"]
         body = {
             "name": unique_name(req["name_prefix"]),
             "description": req["description"],
+            "team_id": team_id,
         }
         resp = auth_client.post("/projects", json=body)
         assert_response(resp, case["expected"])
@@ -48,33 +69,33 @@ class TestCreateProject:
         # 登记以便测试结束后清理
         project_cleanup(resp.json()["id"])
 
-    def test_create_duplicate_name(self, auth_client, unique_name, project_cleanup):
+    def test_create_duplicate_name(self, auth_client, unique_name, project_cleanup, team_id):
         """重名冲突 → 409。先建一个占名,再用同名建第二个。"""
         case = next(c for c in create_fail if c["case_id"] == "duplicate_project_name")
         skip_if_pending(case)
         name = unique_name(case["request"]["name_prefix"])
         desc = case["request"]["description"]
 
-        first = auth_client.post("/projects", json={"name": name, "description": desc})
+        first = auth_client.post("/projects", json={"name": name, "description": desc, "team_id": team_id})
         assert first.status_code == 201, f"前置建项目应成功: {first.text}"
         project_cleanup(first.json()["id"])
 
-        resp = auth_client.post("/projects", json={"name": name, "description": desc})
+        resp = auth_client.post("/projects", json={"name": name, "description": desc, "team_id": team_id})
         assert_response(resp, case["expected"])
 
-    def test_create_missing_name(self, auth_client):
+    def test_create_missing_name(self, auth_client, team_id):
         """缺 name 字段 → 422 (Pydantic 校验失败)。"""
         case = next(c for c in create_fail if c["case_id"] == "missing_project_name")
         skip_if_pending(case)
-        resp = auth_client.post("/projects", json={"description": case["request"]["description"]})
+        resp = auth_client.post("/projects", json={"description": case["request"]["description"], "team_id": team_id})
         assert_response(resp, case["expected"])
 
-    def test_create_without_token(self, client, unique_name):
+    def test_create_without_token(self, client, unique_name, team_id):
         """不带 token → 401 Not authenticated。"""
         case = next(c for c in create_fail if c["case_id"] == "create_project_without_token")
         skip_if_pending(case)
         req = case["request"]
-        body = {"name": unique_name(req["name_prefix"]), "description": req["description"]}
+        body = {"name": unique_name(req["name_prefix"]), "description": req["description"], "team_id": team_id}
         resp = client.post("/projects", json=body)
         assert_response(resp, case["expected"])
 
@@ -101,11 +122,11 @@ class TestListProject:
 class TestGetProjectDetail:
 
     @pytest.mark.parametrize("case", detail_success, ids=_ids(detail_success))
-    def test_detail_success(self, case, auth_client, unique_name, project_cleanup):
+    def test_detail_success(self, case, auth_client, unique_name, project_cleanup, team_id):
         skip_if_pending(case)
         req = case["request"]
         name = unique_name(req["name_prefix"])
-        created = auth_client.post("/projects", json={"name": name, "description": req["description"]})
+        created = auth_client.post("/projects", json={"name": name, "description": req["description"], "team_id": team_id})
         assert created.status_code == 201, f"前置建项目应成功: {created.text}"
         pid = project_cleanup(created.json()["id"])
 
@@ -125,11 +146,11 @@ class TestGetProjectDetail:
 class TestUpdateProject:
 
     @pytest.mark.parametrize("case", update_success, ids=_ids(update_success))
-    def test_update_success(self, case, auth_client, unique_name, project_cleanup):
+    def test_update_success(self, case, auth_client, unique_name, project_cleanup, team_id):
         original_name = unique_name("auto_project_before_update_")
         created = auth_client.post(
             "/projects",
-            json={"name": original_name, "description": "before update"},
+            json={"name": original_name, "description": "before update", "team_id": team_id},
         )
         assert created.status_code == 201, f"前置建项目应成功: {created.text}"
         project_id = project_cleanup(created.json()["id"])
@@ -146,7 +167,7 @@ class TestUpdateProject:
         assert detail.status_code == 200
         assert_values(detail, body)
 
-    def test_update_duplicate_name(self, auth_client, unique_name, project_cleanup):
+    def test_update_duplicate_name(self, auth_client, unique_name, project_cleanup, team_id):
         case = next(
             item for item in update_fail
             if item["case_id"] == "update_project_duplicate_name"
@@ -154,11 +175,11 @@ class TestUpdateProject:
         occupied_name = unique_name(case["request"]["name_prefix"])
         first = auth_client.post(
             "/projects",
-            json={"name": unique_name("auto_project_update_target_"), "description": None},
+            json={"name": unique_name("auto_project_update_target_"), "description": None, "team_id": team_id},
         )
         second = auth_client.post(
             "/projects",
-            json={"name": occupied_name, "description": None},
+            json={"name": occupied_name, "description": None, "team_id": team_id},
         )
         assert first.status_code == second.status_code == 201
         project_cleanup(first.json()["id"])
@@ -212,13 +233,14 @@ class TestUpdateProject:
 class TestDeleteProject:
 
     @pytest.mark.parametrize("case", delete_success, ids=_ids(delete_success))
-    def test_delete_success(self, case, auth_client, unique_name):
+    def test_delete_success(self, case, auth_client, unique_name, team_id, project_cleanup):
         skip_if_pending(case)
         req = case["request"]
         name = unique_name(req["name_prefix"])
-        created = auth_client.post("/projects", json={"name": name, "description": req["description"]})
+        created = auth_client.post("/projects", json={"name": name, "description": req["description"], "team_id": team_id})
         assert created.status_code == 201, f"前置建项目应成功: {created.text}"
         pid = created.json()["id"]
+        project_cleanup(pid)
 
         project_headers = {"X-Project-Id": str(pid)}
         interface = auth_client.post(
@@ -241,6 +263,14 @@ class TestDeleteProject:
             },
         )
         assert test_case.status_code == 201, f"前置建用例应成功: {test_case.text}"
+
+        environment = auth_client.post("/environments", headers=project_headers,
+                                       json={"name": unique_name("auto_delete_env_"), "base_url": "http://app:8000"})
+        assert environment.status_code == 201, environment.text
+        schedule = auth_client.post("/schedules", headers=project_headers,
+                                    json={"name": unique_name("auto_delete_schedule_"), "cron": "0 0 * * *",
+                                          "env_id": environment.json()["id"], "enabled": False})
+        assert schedule.status_code == 201, schedule.text
 
         resp = auth_client.delete(f"/projects/{pid}")
         assert_response(resp, case["expected"])

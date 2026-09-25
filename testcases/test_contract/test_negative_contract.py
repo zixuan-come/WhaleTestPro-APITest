@@ -55,9 +55,12 @@ class TestNegativeContract:
         assert resp.status_code == 422, f"{res['name']} 非法 id 应 422: {resp.status_code} {resp.text}"
 
     @pytest.mark.parametrize("res", updatable, ids=_names(updatable))
-    def test_update_not_found(self, res, project_client):
+    def test_update_not_found(self, res, project_client, runner_env):
         """更新不存在的资源(PUT /{path}/999999,带合法 body) → 404。
         body 合法才能越过 Pydantic 校验、走到 handler 查库,验证的是"找不到"而非"参数错"。"""
-        resp = project_client.put(f"{res['path']}/999999", json=res["update_body"])
+        body = dict(res["update_body"])
+        if res["name"] == "schedule":
+            body["env_id"] = runner_env
+        resp = project_client.put(f"{res['path']}/999999", json=body)
         assert resp.status_code == 404, (
             f"{res['name']} 更新不存在 id 应 404: {resp.status_code} {resp.text}")

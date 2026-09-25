@@ -52,7 +52,7 @@ def _must_create(client, path, payload):
 
 
 @pytest.fixture(scope="module")
-def permission_context(auth_client, member_users, client):
+def permission_context(auth_client, member_users, client, team_factory):
     """仅通过 HTTP 创建角色、团队、项目和执行前置数据。"""
     primary = _must_create(
         auth_client,
@@ -60,6 +60,7 @@ def permission_context(auth_client, member_users, client):
         {
             "name": _name("auto_permission_project_"),
             "description": "HTTP 黑盒权限矩阵主项目",
+            "team_id": team_factory(),
         },
     )
     project_id = primary["id"]
@@ -80,6 +81,7 @@ def permission_context(auth_client, member_users, client):
         {
             "name": _name("auto_permission_other_"),
             "description": "HTTP 黑盒权限矩阵跨项目",
+            "team_id": team_factory(member_users["outsider"]["client"]),
         },
     )
     other_project_id = outsider_project["id"]
@@ -228,6 +230,7 @@ def _resource_payload(resource, context):
         "schedule": {
             "name": _name("auto_matrix_schedule_"),
             "cron": "0 0 * * *",
+            "env_id": context["env_id"],
         },
         "perf": {
             "name": _name("auto_matrix_perf_"),
