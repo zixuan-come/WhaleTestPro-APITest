@@ -6,6 +6,8 @@ import config
 import inspect
 from types import SimpleNamespace
 from tests.test_fixture_contract import _fixture_module
+from tests.test_perf_core_contract import isolated_perf_api, _task
+from common.core_flow import business
 
 
 def test_offline_guard_redis_dependency_is_declared():
@@ -94,3 +96,55 @@ def test_verified_perf_cleanup_allows_normal_parent_cleanup(status):
     with pytest.raises(StopIteration):
         next(cleanup)
     assert not state.retained_projects and not state.retained_teams
+
+
+def test_perf_owner_fixture_generates_valid_registration_credentials(monkeypatch):
+    from testcases.test_perf_core import conftest as fixtures
+    monkeypatch.setenv("WHALE_PERF_CORE_ALLOW_WRITES", "1")
+    registrations = []
+
+    class SyntheticClient:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def post(self, path, json):
+            if path == "/auth/register":
+                registrations.append(json.copy())
+                assert 4 <= len(json["username"]) <= 20
+                assert 4 <= len(json["password"]) <= 20
+                data, status = {"id": 1}, 201
+            else:
+                assert path == "/auth/login" and json == registrations[0]
+                data, status = {"access_token": "synthetic-owner-token"}, 200
+            return SimpleNamespace(status_code=status, envelope_json=lambda: {
+                "code": 0, "message": "synthetic-success", "data": data})
+
+    monkeypatch.setattr(fixtures, "RequestUtil", SyntheticClient)
+    assert fixtures.perf_owner.__wrapped__()["id"] == 1
+    assert len(registrations) == 1
+
+
+@pytest.mark.parametrize("status", ["queued", "running", "done", "failed", "cancelled"])
+def test_project_delete_http_contract_preserves_active_or_uncleared_perf(isolated_perf_api, status):
+    from app.services import perf
+    from app.models.project import Project
+    api = isolated_perf_api
+    task = _task(api, status)
+    api.cache.values[perf.RUN_LOCK_KEY] = f"{api.project_id}:{task.id}:synthetic-message"
+    before = dict(api.cache.values)
+    business(api.client.delete(f"/projects/{api.project_id}"), 409)
+    assert api.database.get(Project, api.project_id)
+    assert api.cache.values == before
+
+
+def test_project_delete_http_contract_fails_closed_on_redis_outage(isolated_perf_api, monkeypatch):
+    from app.models.project import Project
+    import redis
+    api = isolated_perf_api
+    def unavailable(_key):
+        raise redis.ConnectionError("synthetic-private-redis-location")
+    monkeypatch.setattr(api.cache, "get", unavailable)
+    reply = api.client.delete(f"/projects/{api.project_id}")
+    business(reply, 503)
+    assert "synthetic-private" not in reply.text
+    assert api.database.get(Project, api.project_id)
