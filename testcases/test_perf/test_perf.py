@@ -1,5 +1,8 @@
 import pytest
 import allure
+import time
+from copy import deepcopy
+from config import PERF_BASE_URL
 
 from common.yaml_util import load_yaml
 from common.assert_util import assert_response, skip_if_pending
@@ -20,7 +23,7 @@ def _ids(cases):
 
 
 def _payload(unique_name, req):
-    return {
+    payload = {
         "name": unique_name(req["name_prefix"]),
         "target_host": req["target_host"],
         "target_path": req["target_path"],
@@ -28,12 +31,39 @@ def _payload(unique_name, req):
         "spawn_rate": req["spawn_rate"],
         "duration": req["duration"],
     }
+    # Omission keeps the legacy GET contract; explicit null is also preserved.
+    if "load_config" in req:
+        payload["load_config"] = deepcopy(req["load_config"])
+    return payload
 
 
 def _create(project_client, unique_name, req):
     resp = project_client.post("/perf/tasks", json=_payload(unique_name, req))
     assert resp.status_code == 201, f"前置建压测任务应成功: {resp.text}"
     return resp.json()["id"]
+
+
+def _stop_and_delete(project_client, task_id):
+    stopped = project_client.post(f"/perf/tasks/{task_id}/stop")
+    assert_response(stopped, {"status_code": 200})
+    deadline = time.monotonic() + 30
+    while True:
+        current = project_client.get(f"/perf/tasks/{task_id}")
+        assert_response(current, {"status_code": 200})
+        if current.json()["status"] in {"pending", "done", "failed", "cancelled"}:
+            # GET also reconciles the old Worker lease. A control request may
+            # still be in flight, so verify deletion instead of swallowing 404.
+            deleted = project_client.delete(f"/perf/tasks/{task_id}")
+            if deleted.status_code == 200:
+                assert_response(deleted, {"status_code": 200})
+                assert project_client.get(f"/perf/tasks/{task_id}").status_code == 404
+                return
+            # 409: status changed; 503: owned Master cleanup is unavailable.
+            # Keep legacy 404 polling for older deployments, but never treat
+            # any of these responses as successful deletion.
+            assert deleted.status_code in {404, 409, 503}, f"压测任务删除失败: {deleted.text}"
+        assert time.monotonic() < deadline, "压测清理未完成，任务或执行锁仍未释放"
+        time.sleep(1)
 
 
 @allure.feature("性能压测")
@@ -112,11 +142,37 @@ class TestDeletePerfTask:
 @allure.story("执行压测任务")
 class TestRunPerfTask:
 
+    @pytest.mark.async_e2e
     @pytest.mark.parametrize("case", run_success, ids=_ids(run_success))
     def test_run_success(self, case, project_client, unique_name, api_cleanup):
-        """触发压测(异步,locust 后台跑)。只校验接受触发并回任务(status),不等跑完。"""
+        """实际等待 Worker/Locust 执行完成并检查请求统计，不能只验证入队。"""
         skip_if_pending(case)
-        tid = _create(project_client, unique_name, create_success[0]["request"])
+        req = {**create_success[0]["request"], "target_host": PERF_BASE_URL, "duration": 6}
+        tid = _create(project_client, unique_name, req)
         api_cleanup(f"/perf/tasks/{tid}")
-        resp = project_client.post(f"/perf/tasks/{tid}/run")
-        assert_response(resp, case["expected"])
+        try:
+            resp = project_client.post(f"/perf/tasks/{tid}/run")
+            assert_response(resp, case["expected"])
+            queued = resp.json()
+            assert queued["status"] == "queued"
+            assert queued["celery_task_id"], "缺少 Celery 与业务任务的关联 ID"
+            deadline = time.monotonic() + 90
+            result = queued
+            while time.monotonic() < deadline:
+                response = project_client.get(f"/perf/tasks/{tid}")
+                assert_response(response, {"status_code": 200})
+                result = response.json()
+                if result["status"] in {"done", "failed", "cancelled"}:
+                    break
+                time.sleep(1)
+            assert result["status"] == "done", f"压测未正常结束: {result}"
+            assert result["celery_task_id"] == queued["celery_task_id"]
+            assert result["started_at"] and result["finished_at"]
+            rows = result.get("request_stats") or []
+            assert sum(row.get("num_requests", 0) for row in rows) > 0, "未产生真实请求统计"
+            assert sum(row.get("num_failures", 0) for row in rows) == 0, f"目标健康接口请求失败: {rows}"
+            assert result.get("history_samples"), "缺少压测过程采样"
+        finally:
+            # A missing Worker must fail the test, but not leave a queued task
+            # holding the singleton Locust lease for the rest of the suite.
+            _stop_and_delete(project_client, tid)
