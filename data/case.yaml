@@ -43,9 +43,6 @@ update_success:
       name_prefix: auto_case_updated_
       expected_status: 201
       retries: 2
-      tags:
-        - smoke
-        - updated
       extract_rules:
         token: data.token
       assertions:

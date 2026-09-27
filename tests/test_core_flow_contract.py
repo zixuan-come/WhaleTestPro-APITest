@@ -40,7 +40,7 @@ CORE_CHECKS = [
     ("test_suite_partial_update_preserves_bindings", {}, 0),
     ("test_suite_null_update_is_rejected", {"field": "name"}, 0),
     ("test_suite_null_update_is_rejected", {"field": "type"}, 0),
-    ("test_mixed_suite_deduplicates_scenario_case_and_tag_sources", {}, 2),
+    ("test_mixed_suite_deduplicates_scenario_and_explicit_cases", {}, 2),
     ("test_empty_suite_summary_is_failed", {}, 0),
     ("test_suite_rejects_foreign_environment_before_execution", {}, 0),
     ("test_suite_foreign_children_fail_without_foreign_reports", {}, 1),

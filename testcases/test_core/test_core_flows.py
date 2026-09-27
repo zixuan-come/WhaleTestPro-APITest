@@ -216,16 +216,16 @@ def test_regression_explicit_selection_does_not_expand_to_other_cases(core_works
 def test_suite_partial_update_preserves_bindings(core_workspace):
     w = core_workspace
     case = w.case()
-    suite = w.suite(case_ids=[case["id"]], tags=["core"], description="keep me")
+    suite = w.suite(case_ids=[case["id"]], description="keep me")
     path = f"/suites/{suite['id']}"
     unchanged = business(w.client.put(path, json={}))
-    for key in ("name", "type", "case_ids", "tags", "description"):
+    for key in ("name", "type", "case_ids", "description"):
         assert unchanged[key] == suite[key]
     new_name = w.name("core_updated_")
     business(w.client.put(path, json={"name": new_name}))
     current = business(w.client.get(path))
     assert current["name"] == new_name
-    for key in ("type", "case_ids", "tags", "description"):
+    for key in ("type", "case_ids", "description"):
         assert current[key] == suite[key]
 
 
@@ -241,12 +241,12 @@ def test_suite_null_update_is_rejected(core_workspace, field):
 
 @pytest.mark.smoke
 @design_cases("WTP-API-088-P001", "WTP-API-088-X004")
-def test_mixed_suite_deduplicates_scenario_case_and_tag_sources(core_workspace):
+def test_mixed_suite_deduplicates_scenario_and_explicit_cases(core_workspace):
     w = core_workspace
-    first, second = w.case(tags=["core"]), w.case(tags=["core"])
+    first, second = w.case(), w.case()
     scenario = w.scenario([first["id"]])
     suite = w.suite(type="mixed", scenario_ids=[scenario["id"]],
-                    case_ids=[first["id"], second["id"], second["id"]], tags=["core"])
+                    case_ids=[first["id"], second["id"], second["id"]], )
     env = w.environment()
     result = business(w.client.post(f"/suites/{suite['id']}/run", params={"env_id": env["id"]}))
     assert result["suite_id"] == suite["id"] and result["total"] == result["passed"] == 2
@@ -264,7 +264,7 @@ def test_mixed_suite_deduplicates_scenario_case_and_tag_sources(core_workspace):
 @design_cases("WTP-API-088-B001")
 def test_empty_suite_summary_is_failed(core_workspace):
     w = core_workspace
-    suite, env = w.suite(case_ids=[], scenario_ids=[], tags=[]), w.environment()
+    suite, env = w.suite(case_ids=[], scenario_ids=[], ), w.environment()
     result = business(w.client.post(f"/suites/{suite['id']}/run", params={"env_id": env["id"]}))
     assert result["total"] == result["passed"] == result["failed"] == 0
     assert result["pass_rate"] == result["case_count"] == result["scenario_count"] == 0

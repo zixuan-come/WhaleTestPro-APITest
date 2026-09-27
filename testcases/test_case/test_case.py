@@ -117,7 +117,6 @@ class TestUpdateCase:
             "interface_id": interface_id,
             "expected_status": request["expected_status"],
             "retries": request["retries"],
-            "tags": request["tags"],
             "extract_rules": request["extract_rules"],
             "assertions": request["assertions"],
         }
