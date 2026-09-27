@@ -1,8 +1,28 @@
 """Reusable performance task builders and verified lifecycle cleanup."""
 from copy import deepcopy
+import math
 import time
 
 from common.assert_util import assert_response
+
+
+def assert_transaction_metrics(result):
+    """Check public counter/rate consistency, not a performance acceptance SLO."""
+    summary = result['iteration_stats']
+    count, failures, elapsed = (summary[key] for key in ('iterations', 'failures', 'elapsed_seconds'))
+    assert type(count) is int and count > 0 and type(failures) is int and 0 <= failures <= count
+    assert elapsed > 0 and math.isclose(summary['iteration_rps'], count / elapsed, rel_tol=1e-6)
+    samples = [row for row in result['history_samples'] if row.get('tps') is not None]
+    assert samples, '缺少运行中TPS采样，不能只验证最终HTTP吞吐量'
+    for row in samples:
+        assert row['transaction_elapsed_s'] > 0 and row['transactions'] >= row['failed_transactions'] >= 0
+        assert math.isclose(row['avg_tps'], row['transactions'] / row['transaction_elapsed_s'], rel_tol=1e-6)
+        assert math.isclose(row['success_tps'], (row['transactions'] - row['failed_transactions']) / row['transaction_elapsed_s'], rel_tol=1e-6)
+        assert row['tps'] >= 0 and row['transactions'] <= count
+    for previous, current in zip(samples, samples[1:]):
+        elapsed_delta = current['transaction_elapsed_s'] - previous['transaction_elapsed_s']
+        assert elapsed_delta > 0
+        assert math.isclose(current['tps'], (current['transactions'] - previous['transactions']) / elapsed_delta, rel_tol=1e-6)
 
 
 def task_payload(unique_name, req):

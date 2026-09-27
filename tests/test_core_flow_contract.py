@@ -73,7 +73,7 @@ def isolated_core_api(monkeypatch):
     from app.core.security import decode_access_token
     from app.core import circuit_breaker
     from app.models.user import User
-    from app.routers import user, team, project, environment, interface, case, scenario, report, regression, suite
+    from app.routers import user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf
     from app.services import execution
     from app.services import perf as perf_service
     from types import SimpleNamespace
@@ -88,8 +88,9 @@ def isolated_core_api(monkeypatch):
     database.add_all([User(id=i, username=f"isolated_core_{i}", hashed_password="unused") for i in (1, 2, 3)])
     database.commit()
     application = FastAPI()
-    for module in (user, team, project, environment, interface, case, scenario, report, regression, suite):
+    for module in (user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf):
         application.include_router(module.router)
+    application.include_router(traffic_record.capture_router)
     application.add_exception_handler(HTTPException, http_exception_handler)
     application.add_exception_handler(RequestValidationError, validation_exception_handler)
     application.dependency_overrides[get_db] = lambda: database
@@ -109,7 +110,7 @@ def isolated_core_api(monkeypatch):
     def downstream(method, url, **kwargs):
         # Nothing reaches requests.Session or a TCP socket.
         assert method == "GET" and urlsplit(url).netloc == "runner.invalid"
-        assert urlsplit(url).path == "/health/live"
+        assert urlsplit(url).path in {"/health/live", "/health"}
         calls.append((method, url))
         response = requests.Response()
         response.status_code = 200

@@ -28,3 +28,14 @@ def core_workspace(core_actors):
         yield workspace.initialize()
     finally:
         workspace.close()
+
+
+@pytest.fixture
+def core_replay_target():
+    from urllib.parse import urlsplit
+    target = os.environ.get("WHALE_REPLAY_FIXTURE_BASE_URL", "").rstrip("/")
+    parsed = urlsplit(target)
+    assert parsed.scheme == "http" and parsed.hostname and not (
+        parsed.username or parsed.password or parsed.path or parsed.query or parsed.fragment
+    ), "回放需设置 WHALE_REPLAY_FIXTURE_BASE_URL 为专用模拟服务的 HTTP Host"
+    return target

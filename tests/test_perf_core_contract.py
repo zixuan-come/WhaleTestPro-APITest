@@ -38,6 +38,10 @@ class MemoryCache:
     def expire(self, *_args):
         return True
 
+    def delete(self, *keys):
+        for key in keys:
+            self.values.pop(key, None)
+
     def eval(self, _script, count, *args):
         keys, values = args[:count], args[count:]
         if self.get(keys[0]) != values[0]:
@@ -271,6 +275,9 @@ def synthetic_worker_api(isolated_perf_api):
                         "failures": failures, "configuration_failures": 0, "fail_ratio": failures / 2,
                         "avg_duration_ms": sum(row["duration_ms"] for row in runs) / 2,
                         "iteration_rps": 1, "elapsed_seconds": 2}
+                    api.database.flush()
+                    from app.repositories.perf import _sync_run
+                    _sync_run(api.database, task.id, api.project_id)
                     api.database.commit()
                     api.cache.values.clear()  # This fixture's in-memory lease only.
             return route_client.get(path, **kwargs)
