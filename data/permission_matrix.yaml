@@ -74,7 +74,7 @@ execute_resources:
 
   - case_id: regression_execute
     resource: regression
-    path: /regression
+    path: /regression/run
     expected_status: 200
 
   - case_id: perf_execute_reaches_service

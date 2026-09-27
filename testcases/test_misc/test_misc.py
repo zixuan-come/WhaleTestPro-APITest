@@ -5,6 +5,7 @@ import allure
 
 from common.yaml_util import load_yaml
 from common.assert_util import assert_response, assert_values, skip_if_pending
+from common.core_flow import run_selected_cases
 
 _d = load_yaml("data/misc.yaml")
 report_list = _d["report_list"]
@@ -87,11 +88,11 @@ class TestReport:
 class TestRegression:
 
     @pytest.mark.parametrize("case", regression_run, ids=_ids(regression_run))
-    def test_run_success(self, case, project_client, seed_case):
+    def test_run_success(self, case, project_client, seed_case, runner_env):
         """跑项目下全部用例的回归,返回汇总。先造一条用例保证有可跑内容。"""
         skip_if_pending(case)
-        seed_case()
-        resp = project_client.post("/regression", json=None)
+        seeded = seed_case()
+        resp = run_selected_cases(project_client, [seeded['id']], runner_env)
         assert_response(resp, case["expected"])
 
 

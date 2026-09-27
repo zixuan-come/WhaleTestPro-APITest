@@ -316,7 +316,11 @@ def _execute(case, actor_client, context):
     if case["resource"] in {"interface", "case", "scenario", "suite", "regression"}:
         kwargs["params"] = {"env_id": context["env_id"]}
     if case["resource"] == "regression":
-        kwargs["json"] = [context["case_id"]]
+        selection = {'mode':'case','ids':[context['case_id']], 'env_id':context['env_id']}
+        preview = context['clients']['owner'].post('/regression/preview', json=selection)
+        if preview.status_code != 200:
+            return preview
+        kwargs = {'json': {**selection, 'preview_key': preview.envelope_json()['data']['preview_key']}}
     if case["resource"] == "traffic":
         kwargs["json"] = {}
     return actor_client.post(path, **kwargs)

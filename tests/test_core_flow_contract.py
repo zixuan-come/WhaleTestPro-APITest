@@ -36,7 +36,7 @@ CORE_CHECKS = [
     ("test_regression_reports_counts_and_ratio", {}, 2),
     ("test_explicit_empty_regression_does_not_select_all_cases", {}, 0),
     ("test_regression_rejects_non_integer_ids", {}, 0),
-    ("test_regression_explicit_ids_take_precedence_over_tag", {}, 1),
+    ("test_regression_explicit_selection_does_not_expand_to_other_cases", {}, 1),
     ("test_suite_partial_update_preserves_bindings", {}, 0),
     ("test_suite_null_update_is_rejected", {"field": "name"}, 0),
     ("test_suite_null_update_is_rejected", {"field": "type"}, 0),
@@ -73,7 +73,10 @@ def isolated_core_api(monkeypatch):
     from app.core.security import decode_access_token
     from app.core import circuit_breaker
     from app.models.user import User
-    from app.routers import user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf
+    from app.routers import user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf, schedule
+    from app.services import schedule as schedule_service
+    monkeypatch.setattr(schedule_service.scheduler, 'sync_schedule', lambda _: None)
+    monkeypatch.setattr(schedule_service.scheduler, 'remove_schedule', lambda _: None)
     from app.services import execution
     from app.services import perf as perf_service
     from types import SimpleNamespace
@@ -88,7 +91,7 @@ def isolated_core_api(monkeypatch):
     database.add_all([User(id=i, username=f"isolated_core_{i}", hashed_password="unused") for i in (1, 2, 3)])
     database.commit()
     application = FastAPI()
-    for module in (user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf):
+    for module in (user, team, project, environment, interface, case, scenario, report, regression, suite, traffic_record, traffic_replay, perf, schedule):
         application.include_router(module.router)
     application.include_router(traffic_record.capture_router)
     application.add_exception_handler(HTTPException, http_exception_handler)

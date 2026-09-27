@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 import allure
 import pytest
 
-from common.core_flow import business, design_cases
+from common.core_flow import business, design_cases, run_selected_cases
 from common.request_util import RequestUtil
 
 pytestmark = [pytest.mark.core_flow, allure.feature("核心链路回归")]
@@ -175,13 +175,12 @@ def test_regression_reports_counts_and_ratio(core_workspace):
     w = core_workspace
     ids = [w.case()["id"], w.case()["id"]]
     env = w.environment()
-    result = business(w.client.post("/regression", json=ids,
-                                    params={"env_id": env["id"], "notify": False}))
-    assert result["execution_status"] == "completed" and result["passed"] is True
+    result = business(run_selected_cases(w.client, ids, env['id']))
+    assert result["passed"] is True and result['report_id']
     assert result["total"] == result["passed_count"] == 2 and result["failed_count"] == 0
     assert result["pass_rate"] == result["interface_coverage"] == 1
     assert result["interface_total"] == result["interface_covered"] == 2
-    assert [r["case_id"] for r in result["results"]] == ids
+    assert [r["id"] for r in result["results"]] == ids
     assert w.reports()["total"] == 2
 
 
@@ -190,28 +189,25 @@ def test_explicit_empty_regression_does_not_select_all_cases(core_workspace):
     w = core_workspace
     w.case()  # There is a runnable case; [] must not mean "run all".
     env = w.environment()
-    result = business(w.client.post("/regression", json=[], params={"env_id": env["id"], "notify": False}))
-    assert result["execution_status"] == "no_tests" and result["passed"] is False
-    assert result["total"] == result["passed_count"] == result["failed_count"] == 0
-    assert result["pass_rate"] == 0 and result["results"] == [] and w.reports()["total"] == 0
+    business(w.client.post('/regression/preview', json={'mode':'case','ids':[], 'env_id':env['id']}), 422)
+    assert w.reports()["total"] == 0
 
 
 @design_cases("WTP-API-052-N001")
 def test_regression_rejects_non_integer_ids(core_workspace):
     w = core_workspace
-    business(w.client.post("/regression", json=["not-a-number"], params={"notify": False}), 422)
+    business(w.client.post('/regression/preview', json={'mode':'case','ids':['not-a-number']}), 422)
     assert w.reports()["total"] == 0
 
 
 @design_cases("WTP-API-052-X004")
-def test_regression_explicit_ids_take_precedence_over_tag(core_workspace):
+def test_regression_explicit_selection_does_not_expand_to_other_cases(core_workspace):
     w = core_workspace
-    selected, ignored = w.case(tags=["selected"]), w.case(tags=["no_match"])
+    selected, ignored = w.case(), w.case()
     env = w.environment()
-    result = business(w.client.post("/regression", json=[selected["id"]],
-                                    params={"env_id": env["id"], "tag": "no_match", "notify": False}))
+    result = business(run_selected_cases(w.client, [selected['id']], env['id']))
     assert result["total"] == 1 and result["passed"] is True
-    assert [r["case_id"] for r in result["results"]] == [selected["id"]]
+    assert [r["id"] for r in result["results"]] == [selected["id"]]
     assert [r["case_id"] for r in w.reports()["items"]] == [selected["id"]]
     assert ignored["id"] != selected["id"]
 

@@ -29,6 +29,12 @@ def business(response, status=200):
     return body["data"]
 
 
+def run_selected_cases(client, ids, env_id=None, notify=False):
+    selection = {"mode": "case", "ids": ids, "env_id": env_id}
+    plan = business(client.post('/regression/preview', json=selection))
+    return client.post('/regression/run', json={**selection, 'preview_key': plan['preview_key'], 'notify': notify})
+
+
 def bootstrap_core_actors(base_url):
     """Three fresh identities; never clear Redis or reuse existing credentials."""
     public = RequestUtil(base_url, timeout=30)
