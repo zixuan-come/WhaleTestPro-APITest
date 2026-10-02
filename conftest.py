@@ -154,29 +154,33 @@ def member_users(client, ensure_test_user):
 
 
 @pytest.fixture
-def member_project_context(auth_client, member_users, unique_name, project_cleanup):
-    """创建一个 owner/admin/member 项目上下文，供成员权限黑盒用例复用。"""
+def team_member_context(auth_client, member_users, unique_name):
+    """创建 owner/admin/member 团队上下文，供团队成员黑盒用例复用。"""
+    project_ids = []
+    team_ids = []
     created = auth_client.post(
         "/projects",
         json={
-            "name": unique_name("auto_member_project_"),
-            "description": "成员管理接口自动化测试项目",
+            "name": unique_name("auto_team_member_project_"),
+            "description": "团队成员管理接口自动化测试项目",
         },
     )
     assert created.status_code == 201, f"成员测试项目创建失败: {created.text}"
     project_id = created.json()["id"]
-    project_cleanup(project_id)
+    team_id = created.json()["team_id"]
+    project_ids.append(project_id)
+    team_ids.append(team_id)
 
     for role in ("admin", "member"):
         response = auth_client.post(
-            f"/projects/{project_id}/members",
+            f"/teams/{team_id}/members",
             json={"user_id": member_users[role]["id"], "role": role},
         )
         assert response.status_code == 201, (
             f"成员测试前置关系创建失败: role={role}, response={response.text}"
         )
 
-    members = auth_client.get(f"/projects/{project_id}/members")
+    members = auth_client.get(f"/teams/{team_id}/members")
     assert members.status_code == 200, f"成员测试前置查询失败: {members.text}"
     member_rows = members.json()
     member_ids = {row["user_id"]: row["id"] for row in member_rows}
@@ -186,44 +190,53 @@ def member_project_context(auth_client, member_users, unique_name, project_clean
         "member": member_users["member"]["id"],
     }
 
-    other_project_cache = {}
+    other_team_cache = {}
 
-    def make_other_project():
-        """创建第二个项目并把 outsider 加入，用于跨项目 IDOR 用例。"""
-        if other_project_cache:
-            return other_project_cache
+    def make_other_team():
+        """创建第二个项目和团队并加入 outsider，用于跨团队成员 ID 用例。"""
+        if other_team_cache:
+            return other_team_cache
 
         other = auth_client.post(
             "/projects",
             json={
-                "name": unique_name("auto_member_other_project_"),
-                "description": "跨项目权限测试项目",
+                "name": unique_name("auto_member_other_team_"),
+                "description": "跨团队成员权限测试项目",
             },
         )
-        assert other.status_code == 201, f"跨项目测试项目创建失败: {other.text}"
+        assert other.status_code == 201, f"跨团队测试项目创建失败: {other.text}"
         other_id = other.json()["id"]
-        project_cleanup(other_id)
+        other_team_id = other.json()["team_id"]
+        project_ids.append(other_id)
+        team_ids.append(other_team_id)
 
         added = auth_client.post(
-            f"/projects/{other_id}/members",
+            f"/teams/{other_team_id}/members",
             json={"user_id": member_users["outsider"]["id"], "role": "member"},
         )
-        assert added.status_code == 201, f"跨项目测试成员创建失败: {added.text}"
+        assert added.status_code == 201, f"跨团队测试成员创建失败: {added.text}"
 
-        other_members = auth_client.get(f"/projects/{other_id}/members")
+        other_members = auth_client.get(f"/teams/{other_team_id}/members")
         assert other_members.status_code == 200, (
-            f"跨项目测试成员查询失败: {other_members.text}"
+            f"跨团队测试成员查询失败: {other_members.text}"
         )
         outsider_id = next(
             row["id"]
             for row in other_members.json()
             if row["user_id"] == member_users["outsider"]["id"]
         )
-        other_project_cache.update({"project_id": other_id, "member_id": outsider_id})
-        return other_project_cache
+        other_team_cache.update(
+            {
+                "project_id": other_id,
+                "team_id": other_team_id,
+                "member_id": outsider_id,
+            }
+        )
+        return other_team_cache
 
-    return {
+    context = {
         "project_id": project_id,
+        "team_id": team_id,
         "users": member_users,
         "clients": {
             "owner": auth_client,
@@ -233,8 +246,22 @@ def member_project_context(auth_client, member_users, unique_name, project_clean
         },
         "member_ids": member_ids,
         "member_id": lambda role: member_ids[role_user_ids[role]],
-        "make_other_project": make_other_project,
+        "make_other_team": make_other_team,
     }
+
+    try:
+        yield context
+    finally:
+        for pid in reversed(project_ids):
+            try:
+                auth_client.delete(f"/projects/{pid}")
+            except Exception:
+                pass
+        for tid in reversed(team_ids):
+            try:
+                auth_client.delete(f"/teams/{tid}")
+            except Exception:
+                pass
 
 
 @pytest.fixture(scope="session")
@@ -319,7 +346,7 @@ def seed_interface(project_client, unique_name, api_cleanup):
         resp = project_client.post("/interfaces", json={
             "name": unique_name("auto_if_"),
             "method": "GET",
-            "url": "/health",
+            "url": "/health/live",
         })
         assert resp.status_code == 201, f"前置建接口应成功: {resp.text}"
         iid = resp.json()["id"]
@@ -364,10 +391,10 @@ def runner_env(project_client, unique_name, api_cleanup):
 
 @pytest.fixture
 def seed_runnable_case(project_client, unique_name, api_cleanup):
-    """造一个"能真正跑通"的用例:接口 url 用路径(/health),配合 runner_env 的
+    """造一个"能真正跑通"的用例:接口 url 用路径(/health/live),配合 runner_env 的
     base_url 拼成完整地址,expected_status=200 → 执行必 passed。返回 case id。
     """
-    def _make(path="/health", expected_status=200):
+    def _make(path="/health/live", expected_status=200):
         iid = project_client.post("/interfaces", json={
             "name": unique_name("auto_run_if_"),
             "method": "GET",
@@ -390,7 +417,7 @@ def seed_named_runnable_case(project_client, unique_name, api_cleanup):
     interface = project_client.post("/interfaces", json={
         "name": unique_name("auto_report_if_"),
         "method": "GET",
-        "url": "/health",
+        "url": "/health/live",
     })
     assert interface.status_code == 201, f"报告名称测试创建接口失败: {interface.text}"
     interface_id = interface.json()["id"]

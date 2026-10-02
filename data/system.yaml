@@ -1,10 +1,20 @@
-health_success:
-  - case_id: health_ok
+live_success:
+  - case_id: health_live_ok
     expected:
       status_code: 200
       body_type: dict
       required_fields:
         - status
+
+ready_success:
+  - case_id: health_ready_ok
+    expected:
+      status_code: 200
+      body_type: dict
+      required_fields:
+        - status
+        - main_database
+        - shadow_database
 
 metrics_success:
   - case_id: metrics_ok

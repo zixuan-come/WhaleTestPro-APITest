@@ -195,8 +195,8 @@ class TestUpdateProject:
         update_role_access,
         ids=lambda case: case["case_id"],
     )
-    def test_update_role_access(self, case, member_project_context, unique_name):
-        context = member_project_context
+    def test_update_role_access(self, case, team_member_context, unique_name):
+        context = team_member_context
         response = context["clients"][case["actor"]].put(
             f"/projects/{context['project_id']}",
             json={
@@ -227,7 +227,7 @@ class TestDeleteProject:
             json={
                 "name": unique_name("auto_delete_interface_"),
                 "method": "GET",
-                "url": "/health",
+                "url": "/health/live",
             },
         )
         assert interface.status_code == 201, f"前置建接口应成功: {interface.text}"

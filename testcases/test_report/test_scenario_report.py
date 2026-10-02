@@ -88,7 +88,7 @@ class TestGetScenarioReport:
             assert step["passed"] is True
             assert step["case_name"]
             assert step["request_detail"]["method"] == "GET"
-            assert step["request_detail"]["url"].endswith("/health")
+            assert step["request_detail"]["url"].endswith("/health/live")
             assert step["response_detail"]["status_code"] == 200
             assert step["assertions"][0] == {
                 "type": "status_code",

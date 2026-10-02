@@ -1,5 +1,5 @@
-add_project_member_success:
-  - case_id: owner_add_project_member
+add_team_member_success:
+  - case_id: owner_add_team_member
     actor: owner
     request:
       role: member
@@ -7,13 +7,13 @@ add_project_member_success:
       status_code: 201
       required_fields:
         - id
-        - project_id
+        - team_id
         - user_id
         - role
         - created_at
         - user
 
-  - case_id: admin_add_project_member
+  - case_id: admin_add_team_member
     actor: admin
     request:
       role: member
@@ -21,22 +21,22 @@ add_project_member_success:
       status_code: 201
       required_fields:
         - id
-        - project_id
+        - team_id
         - user_id
         - role
         - created_at
         - user
 
-add_project_member_fail:
-  - case_id: member_add_project_member
+add_team_member_fail:
+  - case_id: member_add_team_member
     actor: member
     request:
       role: member
     expected:
       status_code: 403
-      detail: 无权执行 project_member.manage 操作
+      detail: 只有团队所有者或管理员可以执行此操作
 
-  - case_id: duplicate_project_member
+  - case_id: duplicate_team_member
     actor: owner
     request:
       role: member
@@ -53,14 +53,14 @@ add_project_member_fail:
       status_code: 404
       detail: 用户不存在
 
-  - case_id: add_project_owner_role
+  - case_id: add_team_owner_role
     actor: owner
     request:
       role: owner
     expected:
       status_code: 422
 
-  - case_id: add_project_member_without_token
+  - case_id: add_team_member_without_token
     actor: anonymous
     request:
       role: member

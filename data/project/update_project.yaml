@@ -52,7 +52,7 @@ update_project_role_access:
   - case_id: update_project_as_member
     actor: member
     request:
-      name_prefix: auto_project_member_update_
+      name_prefix: auto_project_team_member_update_
       description: API automation member update
     expected:
       status_code: 403

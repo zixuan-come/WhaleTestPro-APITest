@@ -3,7 +3,7 @@ create_success:
     request:
       name_prefix: auto_perf_create_
       target_host: http://localhost:8001
-      target_path: /health
+      target_path: /health/live
       users: 1
       spawn_rate: 1
       duration: 2
@@ -61,7 +61,7 @@ create_fail:
     request:
       name_prefix: auto_perf_badtype_
       target_host: http://localhost:8001
-      target_path: /health
+      target_path: /health/live
       users: not-an-int
       spawn_rate: 1
       duration: 1
@@ -75,7 +75,7 @@ create_no_token:
     request:
       name_prefix: auto_perf_notoken_
       target_host: http://localhost:8001
-      target_path: /health
+      target_path: /health/live
       users: 1
       spawn_rate: 1
       duration: 1

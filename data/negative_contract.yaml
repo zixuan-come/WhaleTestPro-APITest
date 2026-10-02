@@ -9,7 +9,7 @@ resources:
     creatable: true
     has_detail: true
     updatable: true
-    update_body: {name: "auto_upd_404", method: GET, url: /health}
+    update_body: {name: "auto_upd_404", method: GET, url: /health/live}
     list_no_token_status: 401
     list_no_token_detail: Not authenticated
 

@@ -1,27 +1,28 @@
-search_project_member_candidates_success:
-  - case_id: owner_search_project_member_candidates
+search_team_member_candidates_success:
+  - case_id: owner_search_team_member_candidates
     actor: owner
     expected:
       status_code: 200
       body_type: list
 
-  - case_id: admin_search_project_member_candidates
+  - case_id: admin_search_team_member_candidates
     actor: admin
     expected:
       status_code: 200
       body_type: list
 
-search_project_member_candidates_fail:
-  - case_id: member_search_project_member_candidates
+search_team_member_candidates_fail:
+  - case_id: member_search_team_member_candidates
     actor: member
     expected:
       status_code: 403
-      detail: 无权执行 project_member.manage 操作
+      detail: 只有团队所有者或管理员可以执行此操作
 
-  - case_id: outsider_search_project_member_candidates
+  - case_id: outsider_search_team_member_candidates
     actor: outsider
     expected:
       status_code: 404
+      detail: 团队不存在或无权访问
 
   - case_id: short_search_keyword
     actor: owner
@@ -30,7 +31,7 @@ search_project_member_candidates_fail:
     expected:
       status_code: 422
 
-  - case_id: search_project_member_candidates_without_token
+  - case_id: search_team_member_candidates_without_token
     actor: anonymous
     expected:
       status_code: 401

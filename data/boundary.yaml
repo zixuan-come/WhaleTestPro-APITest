@@ -9,7 +9,7 @@ cases:
   # ---- 空 name:统一由 NamedSchema 拒绝 ----
   - case_id: interface_empty_name
     path: /interfaces
-    body: {name: "", method: GET, url: /health}
+    body: {name: "", method: GET, url: /health/live}
     expected: {status_code: 422}
     note: "名称不能为空"
 
@@ -46,7 +46,7 @@ cases:
   # ---- 超长 name:统一由 NamedSchema 拒绝 ----
   - case_id: interface_overlong_name
     path: /interfaces
-    body: {name: "{{LONG}}", method: GET, url: /health}
+    body: {name: "{{LONG}}", method: GET, url: /health/live}
     expected: {status_code: 422}
     note: "名称长度不能超过 100 个字符"
 
@@ -83,12 +83,12 @@ cases:
 
   - case_id: perf_users_zero
     path: /perf/tasks
-    body: {name: "auto_bnd_u0", target_host: "http://localhost:8000", target_path: /health, users: 0, spawn_rate: 1, duration: 1}
+    body: {name: "auto_bnd_u0", target_host: "http://localhost:8000", target_path: /health/live, users: 0, spawn_rate: 1, duration: 1}
     expected: {status_code: 422}
     note: "users 必须大于等于 1"
 
   - case_id: perf_users_negative
     path: /perf/tasks
-    body: {name: "auto_bnd_uneg", target_host: "http://localhost:8000", target_path: /health, users: -5, spawn_rate: 1, duration: 1}
+    body: {name: "auto_bnd_uneg", target_host: "http://localhost:8000", target_path: /health/live, users: -5, spawn_rate: 1, duration: 1}
     expected: {status_code: 422}
     note: "users 必须大于等于 1"

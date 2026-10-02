@@ -1,23 +1,24 @@
-list_project_members_success:
-  - case_id: owner_list_project_members
+list_team_members_success:
+  - case_id: owner_list_team_members
     actor: owner
     expected:
       status_code: 200
       body_type: list
 
-  - case_id: member_list_project_members
+  - case_id: member_list_team_members
     actor: member
     expected:
       status_code: 200
       body_type: list
 
-list_project_members_fail:
-  - case_id: non_member_list_project_members
+list_team_members_fail:
+  - case_id: non_member_list_team_members
     actor: outsider
     expected:
       status_code: 404
+      detail: 团队不存在或无权访问
 
-  - case_id: list_project_members_without_token
+  - case_id: list_team_members_without_token
     actor: anonymous
     expected:
       status_code: 401

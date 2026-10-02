@@ -67,7 +67,7 @@ def permission_context(auth_client, member_users, client):
 
     for role in ("admin", "member"):
         response = auth_client.post(
-            f"/projects/{project_id}/members",
+            f"/teams/{team_id}/members",
             json={"user_id": member_users[role]["id"], "role": role},
         )
         assert response.status_code == 201, (
@@ -105,7 +105,7 @@ def permission_context(auth_client, member_users, client):
     seed_interface = _must_create(
         owner,
         "/interfaces",
-        {"name": _name("auto_permission_if_"), "method": "GET", "url": "/health"},
+        {"name": _name("auto_permission_if_"), "method": "GET", "url": "/health/live"},
     )
     runner_env = _must_create(
         owner,
@@ -207,7 +207,7 @@ def _resource_payload(resource, context):
         "interface": {
             "name": _name("auto_matrix_if_"),
             "method": "GET",
-            "url": "/health",
+            "url": "/health/live",
         },
         "case": {
             "name": _name("auto_matrix_case_"),
@@ -232,7 +232,7 @@ def _resource_payload(resource, context):
         "perf": {
             "name": _name("auto_matrix_perf_"),
             "target_host": "http://localhost:8000",
-            "target_path": "/health",
+            "target_path": "/health/live",
             "users": 1,
             "spawn_rate": 1,
             "duration": 1,
@@ -295,7 +295,7 @@ def test_write_permission_matrix(case, permission_context):
 
 
 @allure.feature("HTTP 黑盒权限矩阵")
-@allure.story("读取权限和项目成员边界")
+@allure.story("读取权限和项目访问边界")
 @pytest.mark.parametrize("case", WRITE_RESOURCES, ids=_ids(WRITE_RESOURCES))
 def test_read_permission_matrix(case, permission_context):
     member_response = permission_context["clients"]["member"].get(case["collection"])
@@ -452,13 +452,13 @@ def test_project_move_team_is_owner_only(permission_context):
 
 
 @allure.feature("HTTP 黑盒权限矩阵")
-@allure.story("成员移除后立即失权")
-def test_removed_team_member_cannot_use_legacy_project_membership(permission_context):
+@allure.story("团队成员移除后立即失去项目访问权")
+def test_removed_team_member_immediately_loses_project_access(permission_context):
     context = permission_context
     owner = context["base_clients"]["owner"]
     outsider_id = context["users"]["outsider"]["id"]
     created = owner.post(
-        f"/projects/{context['project_id']}/members",
+        f"/teams/{context['team_id']}/members",
         json={"user_id": outsider_id, "role": "member"},
     )
     _assert_status(created, 201)
@@ -469,7 +469,7 @@ def test_removed_team_member_cannot_use_legacy_project_membership(permission_con
         _assert_status(before, 200)
     finally:
         removed = owner.delete(
-            f"/projects/{context['project_id']}/members/{member_id}"
+            f"/teams/{context['team_id']}/members/{member_id}"
         )
         _assert_status(removed, 200)
 

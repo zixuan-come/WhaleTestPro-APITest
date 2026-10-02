@@ -57,11 +57,11 @@ jobs:
         working-directory: backend
         run: docker compose -p whaletestpro up -d --build app
 
-      # 6. 轮询 /health,等 app 真正可用(镜像构建 + create_all 需要时间)
+      # 6. 轮询 /health/ready,等 app 和主库/影子库真正可用
       - name: 等待 app 就绪
         run: |
           for i in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health || echo 000)
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8001/health/ready || echo 000)
             if [ "$code" = "200" ]; then echo "app 就绪"; exit 0; fi
             echo "第 $i 次探测: HTTP $code,3s 后重试"
             sleep 3
