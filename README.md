@@ -18,7 +18,7 @@ docker compose up -d --build
 | 后端 API | http://localhost:8001 |
 | Swagger | http://localhost:8001/docs |
 
-鉴权:受保护接口需 `Authorization: Bearer <token>`;项目内接口、用例、环境、场景等资产接口还需 `X-Project-Id`。项目 CRUD / 成员接口通过路径参数校验项目权限,不使用该请求头;健康检查、注册、登录和 Mock 命中路由保持公开。
+鉴权:受保护接口需 `Authorization: Bearer <token>`;项目内接口、用例、环境、场景等资产接口还需 `X-Project-Id`。项目 CRUD 通过路径参数校验项目权限，团队成员接口通过 `team_id` 校验团队权限；健康检查、注册、登录和 Mock 命中路由保持公开。
 
 ## 技术栈
 
@@ -45,7 +45,8 @@ WhaleTestPro-APITest/
 ├── tools/gen_testcase_excel.py # 读 data/*.yaml 生成《接口测试用例》Excel,校验编号一致
 ├── testcases/              # 测试用例(按资源分目录,覆盖全部接口)
 │   ├── test_auth/          # 注册 / 登录 / 登出
-│   ├── test_project/       # 项目 CRUD + 成员角色 + 非空项目删除
+│   ├── test_project/       # 项目 CRUD + 角色权限 + 非空项目删除
+│   ├── test_team/          # 团队成员查询、搜索、添加、改角色、移除
 │   ├── test_interface/     # 接口 CRUD + 分类改名/删除
 │   ├── test_case/          # 用例 CRUD + 执行 + 串联
 │   ├── test_scenario/      # 场景 CRUD + 执行
@@ -55,7 +56,7 @@ WhaleTestPro-APITest/
 │   ├── test_perf/          # 压测任务 CRUD + 触发
 │   ├── test_contract/      # 跨资源反例:缺头/缺字段/错类型/无 token/更新不存在
 │   ├── test_boundary/      # 边界与畸形输入回归(空/超长 name、非法 cron、负并发)
-│   ├── test_system/        # /health + /metrics
+│   ├── test_system/        # /health/live、/health/ready + /metrics
 │   ├── test_report/        # 场景报告父记录与步骤明细
 │   └── test_misc/          # 报告 / 回归 / demo 订单 / 流量录制
 ├── pytest.ini              # 用例发现规则、addopts
@@ -67,7 +68,7 @@ WhaleTestPro-APITest/
 ## 用例台账(Excel)
 
 `docs/WhaleTestPro接口测试用例.xlsx` 是给人看的用例台账,单文件、每个资源一个 sheet
-(用户认证/项目/接口/用例/场景/环境/Mock/定时任务/压测/系统/报告与其他/通用契约反例)。
+(用户认证/项目/团队成员/接口/用例/场景/环境/Mock/定时任务/压测/系统/报告与其他/通用契约反例)。
 
 **它由脚本从 YAML 生成,不手动维护**:编号列与"预期结果"直接读 `data/*.yaml`,
 保证台账和自动化数据零漂移。改了 YAML 重跑即可:
@@ -94,19 +95,19 @@ YAML 的 `expected` 声明哪项就校验哪项,各检查彼此独立:
 ## 回归覆盖重点
 
 - **认证隔离**:校验 JWT 包含唯一 `jti`,同一账号连续登录得到不同 Token,登出只拉黑当前 Token。
-- **项目权限**:覆盖 owner / admin / member / outsider 的成员查询、候选搜索、添加、改角色、移除和越权场景。
+- **团队权限**:覆盖 owner / admin / member / outsider 的成员查询、候选搜索、添加、改角色、移除，以及成员变化后项目权限立即生效。
 - **项目生命周期**:覆盖项目修改以及带接口、用例的非空项目事务删除,避免外键冲突退化为 500。
 - **输入边界**:空名称、超长名称、非法 Cron、零或负并发统一期望 `422`。
 - **资源契约**:覆盖无 Token、缺 `X-Project-Id`、错误类型、跨项目访问和更新不存在资源。
 - **报告闭环**:覆盖单用例报告分页、用例名称,以及一份场景报告对应多条步骤明细。
 - **测试隔离**:fixture 自动创建独立项目和账号,测试结束后清理数据,不依赖 WhaleTestPro 内部代码。
 
-当前完整回归基线为 `201 collected / 200 passed / 1 skipped`;跳过项是需要预先录制真实流量的数据依赖场景。
+当前完整回归基线为 `233 collected / 232 passed / 1 skipped`;跳过项是需要预先录制真实流量的数据依赖场景。
 
 ## CI
 
 `.github/workflows/ci.yml`:push/PR 到 main 触发。流程:checkout 本仓 + 被测系统 →
-起 MySQL 建影子库 → 起 app(自动带起 redis/rabbitmq)→ 轮询 `/health` →
+起 MySQL 建影子库 → 起 app(自动带起 redis/rabbitmq)→ 轮询 `/health/ready` →
 **冒烟门禁(`pytest -m smoke`,挂了快速失败)** → 全量 pytest → 上传 Allure 原始结果 →
 装 Java + Allure CLI 渲染 **HTML 报告** 并上传。两份产物:`allure-results`(原始)、
 `allure-report`(可直接打开的 HTML)。**私有被测仓需在本仓 Secrets 配 `BACKEND_REPO_TOKEN`**

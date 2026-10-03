@@ -63,6 +63,21 @@ SHEETS = [
         ],
     },
     {
+        "title": "团队成员",
+        "sections": [
+            ("team/list_team_members.yaml", "list_team_members_success", "GET", "/teams/{team_id}/members", "查看团队成员"),
+            ("team/list_team_members.yaml", "list_team_members_fail", "GET", "/teams/{team_id}/members", "查看团队成员失败"),
+            ("team/add_team_member.yaml", "add_team_member_success", "POST", "/teams/{team_id}/members", "新增团队成员"),
+            ("team/add_team_member.yaml", "add_team_member_fail", "POST", "/teams/{team_id}/members", "新增团队成员失败"),
+            ("team/update_team_member_role.yaml", "update_team_member_role_success", "PATCH", "/teams/{team_id}/members/{member_id}", "修改团队成员角色"),
+            ("team/update_team_member_role.yaml", "update_team_member_role_fail", "PATCH", "/teams/{team_id}/members/{member_id}", "修改团队成员角色失败"),
+            ("team/remove_team_member.yaml", "remove_team_member_success", "DELETE", "/teams/{team_id}/members/{member_id}", "移除团队成员"),
+            ("team/remove_team_member.yaml", "remove_team_member_fail", "DELETE", "/teams/{team_id}/members/{member_id}", "移除团队成员失败"),
+            ("team/search_team_member_candidates.yaml", "search_team_member_candidates_success", "GET", "/teams/{team_id}/member-candidates", "搜索团队成员候选人"),
+            ("team/search_team_member_candidates.yaml", "search_team_member_candidates_fail", "GET", "/teams/{team_id}/member-candidates", "搜索团队成员候选人失败"),
+        ],
+    },
+    {
         "title": "接口",
         "sections": [
             ("interface.yaml", "create_success", "POST", "/interfaces", "创建接口"),
@@ -158,7 +173,8 @@ SHEETS = [
     {
         "title": "系统",
         "sections": [
-            ("system.yaml", "health_success", "GET", "/health", "健康检查"),
+            ("system.yaml", "live_success", "GET", "/health/live", "存活检查"),
+            ("system.yaml", "ready_success", "GET", "/health/ready", "就绪检查"),
             ("system.yaml", "metrics_success", "GET", "/metrics", "Prometheus 指标"),
         ],
     },
@@ -349,6 +365,9 @@ def _check_coverage(covered):
         "perf.yaml", "system.yaml", "boundary.yaml",
         "project/create_project.yaml", "project/list_project.yaml",
         "project/get_project_detail.yaml", "project/delete_project.yaml",
+        "team/list_team_members.yaml", "team/add_team_member.yaml",
+        "team/update_team_member_role.yaml", "team/remove_team_member.yaml",
+        "team/search_team_member_candidates.yaml",
     ]:
         doc = load(rel)
         for group, cases in doc.items():
