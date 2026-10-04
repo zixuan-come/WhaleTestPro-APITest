@@ -48,6 +48,12 @@ Remove-Item Env:\WHALE_CORE_ALLOW_WRITES
 
 截至 2026-10-10，`tests/` 离线门禁记录为 **57 passed**（原有 24 条＋新增 33 条）。新增 33 条包含 29 个核心场景在真实路由、独立 SQLite、模拟鉴权/下游条件下的验证，以及 4 条支撑检查；不是 29 条实际部署环境 HTTP 通过。当时尚未执行实际 HTTP；后续隔离集成结果见下方日期记录。GitHub Actions 未因本地验证而视为通过，Excel 的“未执行”状态没有改写。
 
+## 10 月 17 日接口增量同步（2026-10-18）
+
+新增 `testcases/test_core/test_request_config_delta.py`：8 个函数、16 个 HTTP 场景，补齐接口 Path 参数、临时调试请求配置、用例独立请求配置、按接口筛选及邀请团队名称。沿用核心链路的隔离写入开关和资产清理；前端入口合并及样式改动不扩展接口回归。
+
+这批脚本可由 `tests/test_request_config_delta_contract.py` 在真实路由＋独立 SQLite 上离线校验；本轮不连接当前手工测试环境。范围、逐项检查和执行记录见 [10 月 17 日接口增量同步](docs/10月17日接口增量同步.md)。原 639 条设计台账及历史验收结果保持各自记录，本次新增场景不冒用旧编号。
+
 ## 被测系统
 
 WhaleTestPro 由 Docker Compose 独立起,测试代码只依赖其 `BASE_URL`:
