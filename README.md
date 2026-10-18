@@ -54,6 +54,16 @@ Remove-Item Env:\WHALE_CORE_ALLOW_WRITES
 
 这批脚本可由 `tests/test_request_config_delta_contract.py` 在真实路由＋独立 SQLite 上离线校验；本轮不连接当前手工测试环境。范围、逐项检查和执行记录见 [10 月 17 日接口增量同步](docs/10月17日接口增量同步.md)。原 639 条设计台账及历史验收结果保持各自记录，本次新增场景不冒用旧编号。
 
+## 平台与压测最新增量同步（2026-10-18）
+
+**本节为整合前快照。** 随后“回归测试/定时任务”整合已移除旧 `POST /regression`，当前接口总数 **107**。本仓已迁移核心回归、历史 HTTP 脚本及执行权限矩阵到预览和新版执行，新增 7 项定时目标/隔离场景。当前离线门禁 **212 passed**；独立 MySQL 环境核心 HTTP **69 passed**、执行权限矩阵 **7 passed**。详见 [回归与定时任务整合同步](docs/10月18日回归与定时任务整合同步.md)。
+
+新增 **30 个 HTTP 场景**：执行报告分类与层级、回归预览及配置变更保护、项目通知权限与脱敏、接口调试流量录制/回放，以及压测配置编辑、重复运行、独立执行历史、分页清理和实时 TPS。脚本位于 `testcases/test_core/test_platform_delta.py`（17 项）和 `testcases/test_perf_core/test_perf_history.py`（13 项，其中 4 项需要真实异步压测）。
+
+当前完整离线门禁为 **205 passed**；新增 30 项 HTTP 在独立 MySQL 双库、Redis/RabbitMQ、真实 Celery/Locust 和专用模拟目标上通过。没有访问原平台业务数据、向 WhaleShop 发压测流量或发送 Webhook 消息。验证范围、运行开关及环境修正见 [10 月 18 日增量同步记录](docs/10月18日平台与压测增量同步.md)。
+
+回放测试还需设置 `WHALE_REPLAY_FIXTURE_BASE_URL`，指向运行 `scripts/perf_fixture_server.py` 的专用服务；不能用平台健康接口代替回放目标。CI 已把模拟服务的启动移到核心 HTTP 门禁之前。被测基线包括 WhaleTestPro `2a0b2d9` 及本地尚未提交的压测历史/TPS 改动；推送自动化前需先提交被测功能。云端 Actions 尚未验证。
+
 ## 被测系统
 
 WhaleTestPro 由 Docker Compose 独立起,测试代码只依赖其 `BASE_URL`:
@@ -88,14 +98,16 @@ WhaleTestPro-APITest/
 │   ├── request_util.py     # httpx 封装:统一 BASE_URL、默认请求头、超时与日志
 │   ├── assert_util.py      # 契约断言:状态、结构、字段类型、错误详情与字段值
 │   ├── core_flow.py        # 核心链路编号标签、独立资产准备与清理
+│   ├── perf_flow.py        # 压测生命周期清理与公开 TPS 统计契约
 │   └── yaml_util.py        # 读取 data/ 下的 YAML
 ├── config.py               # 服务地址与测试账号配置(从 .env 读)
 ├── conftest.py             # 全局 fixture:client、登录取 token、项目上下文、清理/自举
 ├── data/                   # YAML 测试数据(按模块和接口场景拆分)
-├── docs/                   # 历史 YAML 台账 Excel + 完整设计编号的核心自动化映射
-├── tools/gen_testcase_excel.py # 读 data/*.yaml 生成《接口测试用例》Excel,校验编号一致
+├── docs/                   # 当前 HTTP 用例 Excel + 完整设计编号的核心自动化映射
+├── tools/gen_testcase_excel.py # 旧版 YAML 导出器，不涵盖当前全部 HTTP 场景
 ├── testcases/              # 按资源/核心链路分目录，不表示全量接口已自动化
 │   ├── test_core/          # 本次独立核心回归：执行/报告/隔离/套件/引用迁移
+│   ├── test_perf_core/     # 请求配置、异步压测、任务复用/历史清理/TPS
 │   ├── test_auth/          # 注册 / 登录 / 登出
 │   ├── test_project/       # 项目 CRUD + 角色权限 + 非空项目删除
 │   ├── test_team/          # 团队成员查询、搜索、添加、改角色、移除
@@ -119,19 +131,13 @@ WhaleTestPro-APITest/
 
 ## 用例台账(Excel)
 
-`docs/WhaleTestPro接口测试用例.xlsx` 是给人看的用例台账,单文件、每个资源一个 sheet
-(用户认证/项目/团队成员/接口/用例/场景/环境/Mock/定时任务/压测/系统/报告与其他/通用契约反例)。
+最新 [接口测试用例 Excel](docs/WhaleTestPro接口测试用例.xlsx) 于 **2026-10-19** 同步到当前工作区：**361 条 HTTP 参数化场景**，与 `pytest testcases --collect-only` 的 25 个脚本文件逐条对应。保留原 180 个编号及原工作表位置，补齐 181 条此前未入表的场景，新增“测试套件”“权限矩阵”和“版本说明”工作表。
 
-**它由脚本从 YAML 生成,不手动维护**:编号列与"预期结果"直接读 `data/*.yaml`,
-保证台账和自动化数据零漂移。改了 YAML 重跑即可:
+已同步当前 107 项接口基线，包括请求覆盖、报告分类、回归预览/执行、明确选择的定时任务、通知和录制回放，以及压测复用、历史清理和实时 TPS。补充前置、步骤、脚本位置、筛选和执行结果下拉项；仅收集和核对脚本，**本次文档更新没有重跑 HTTP 测试**。其中 `replay_traffic_success` 仍按当前脚本标记暂跳过，新录制/回放场景另有覆盖。部分旧边界脚本同时缺少环境或团队字段，不能单独证明名称/Cron 校验，已在对应备注中标明。
 
-```bash
-python tools/gen_testcase_excel.py
-```
+旧 `tools/gen_testcase_excel.py` 仅支持部分 YAML，不能生成这版完整台账，请勿直接用它覆盖最新版。修改测试代码后，应按脚本及参数化实例重新核对，保留编号、人工填写的执行结果与备注。
 
-脚本会校验每个 YAML `case_id` 都进了台账,漏了直接报错退出。
-
-该历史 YAML 表不包含本次纯 Python 核心场景，也不是 639 条完整设计主表。完整新版位于 WhaleTestPro 仓库 `docs/testing/testcases/`；本次通过 `design_case` 标签和映射文档关联其编号，不覆盖旧表。
+本表统计 `testcases/` 的 HTTP 场景，不包含 `tests/` 离线支撑检查，也不是主仓历史 639 条完整设计主表。361 条不表示 107 项接口的所有场景均已覆盖；`design_case` 只用于追踪历史设计编号。
 
 ## 断言契约(assert_util)
 
@@ -218,3 +224,5 @@ allure serve allure-results
 - **lint 门禁(ruff)**:代码质量规范,对纯测试项目偏锦上添花,想要工程背书时再加。
 - **覆盖率门禁**:❌ 明确不做。黑盒测的是被测系统的代码,而 `pytest-cov` 统计的是
   测试套件自身的行覆盖,对黑盒场景参考意义有限;`pytest-cov` 保留为"需要时能开"。
+
+2026-10-19：已同步产品标签功能移除，HTTP目录为361条参数化场景（25个脚本文件），详见[标签移除同步](docs/10月19日标签移除同步.md)。原设计编号和 Allure 元数据保留。
