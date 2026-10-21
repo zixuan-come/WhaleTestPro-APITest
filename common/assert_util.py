@@ -11,6 +11,21 @@ BODY_TYPE_MAP = {
 }
 
 
+def json_equal(actual, expected):
+    """Independent black-box oracle: JSON booleans are not JSON numbers."""
+    if isinstance(actual, bool) or isinstance(expected, bool):
+        return type(actual) is bool and type(expected) is bool and actual == expected
+    if isinstance(actual, (int, float)) and isinstance(expected, (int, float)):
+        return actual == expected
+    if type(actual) is not type(expected):
+        return False
+    if isinstance(actual, dict):
+        return actual.keys() == expected.keys() and all(json_equal(value, expected[key]) for key, value in actual.items())
+    if isinstance(actual, list):
+        return len(actual) == len(expected) and all(json_equal(a, b) for a, b in zip(actual, expected))
+    return actual == expected
+
+
 def _forbidden_field_paths(value, forbidden, path="data"):
     found = []
     if isinstance(value, dict):
@@ -62,7 +77,7 @@ def assert_response(resp, expected):
     # 2. 响应体整体类型
     if "body_type" in expected:
         expected_type = BODY_TYPE_MAP[expected["body_type"]]
-        assert isinstance(body, expected_type), (
+        assert type(body) is expected_type, (
             f"响应体类型不符合预期: expected={expected['body_type']}, "
             f"actual={type(body).__name__}, response={resp.text}"
         )
@@ -86,7 +101,7 @@ def assert_response(resp, expected):
         )
         for field, type_name in expected["field_types"].items():
             expected_type = BODY_TYPE_MAP[type_name]
-            assert isinstance(body.get(field), expected_type), (
+            assert type(body.get(field)) is expected_type, (
                 f"响应字段类型不符合预期: field={field}, expected={type_name}, "
                 f"actual={type(body.get(field)).__name__}, response={resp.text}"
             )
@@ -121,7 +136,8 @@ def assert_values(resp, expected_values):
     envelope = resp.envelope_json() if hasattr(resp, "envelope_json") else resp.json()
     body = envelope.get("data") if isinstance(envelope, dict) and envelope.get("code") == 0 else envelope
     assert isinstance(body, dict), f"值校验只能对 dict 响应, 实际={type(body).__name__}, response={resp.text}"
-    mismatch = {k: (v, body.get(k)) for k, v in expected_values.items() if body.get(k) != v}
+    mismatch = {k: (v, body.get(k)) for k, v in expected_values.items()
+                if k not in body or not json_equal(body[k], v)}
     assert not mismatch, (
         f"字段值不符合预期(字段: (期望, 实际)): {mismatch}, response={resp.text}"
     )

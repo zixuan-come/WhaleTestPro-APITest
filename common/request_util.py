@@ -1,11 +1,17 @@
 import logging
+import re
 import time
+from urllib.parse import urlsplit
 
 import httpx
 
 # 统一的 HTTP 日志器。handler 由 conftest 挂到文件(logs/http.log),
 # 这里只负责产出记录:每条请求打一行 method/path/状态码/耗时,失败排查用。
 log = logging.getLogger("whale.http")
+EXECUTION_PATH = re.compile(
+    r"^/(?:interfaces/\d+/run|cases/(?:\d+/run|chain)|scenarios/\d+/(?:run|debug)|"
+    r"suites/\d+/run|regression/run|traffic/replay/\d+)/?$"
+)
 class ResponseView:
     """Keep existing test code compatible with the common API envelope."""
 
@@ -30,15 +36,18 @@ class ResponseView:
 
 
 class RequestUtil:
-    def __init__(self, base_url, headers=None, timeout=10):
+    def __init__(self, base_url, headers=None, timeout=10, execution_timeout=600):
         self.base_url = base_url.rstrip("/")
         self.headers = headers or {}
         self.timeout = timeout
+        self.execution_timeout = execution_timeout
 
     def request(self, method, path, **kwargs):
         url = self.base_url + path
         headers = self.headers.copy()
         headers.update(kwargs.pop("headers", {}) or {})
+        synchronous = method.upper() == "POST" and EXECUTION_PATH.fullmatch(urlsplit(path).path)
+        timeout = kwargs.pop("timeout", self.execution_timeout if synchronous else self.timeout)
 
         start = time.perf_counter()
         try:
@@ -46,7 +55,7 @@ class RequestUtil:
                 method=method,
                 url=url,
                 headers=headers,
-                timeout=self.timeout,
+                timeout=timeout,
                 **kwargs
             )
         except Exception as exc:

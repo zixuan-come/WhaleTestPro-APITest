@@ -2,7 +2,7 @@
 import pytest
 
 from common.core_flow import CoreWorkspace, business
-from test_core_flow_contract import isolated_core_api  # noqa: F401; shared isolated fixture
+from tests.test_core_flow_contract import isolated_core_api  # noqa: F401; shared isolated fixture
 from testcases.test_core import test_request_config_delta as delta
 
 
